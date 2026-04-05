@@ -63,6 +63,43 @@ export class CategoryService {
     this.storage.setCategories(categories.filter((c) => c.id !== id));
   }
 
+  findPaginated({
+    page,
+    limit,
+    sortBy,
+    order,
+  }: {
+    page: number;
+    limit: number;
+    sortBy?: string;
+    order: 'asc' | 'desc';
+  }) {
+    let data = [...this.storage.getCategories()];
+
+    const total = data.length;
+
+    if (sortBy) {
+      data.sort((a, b) => {
+        const valA = a[sortBy];
+        const valB = b[sortBy];
+
+        if (valA < valB) return order === 'desc' ? 1 : -1;
+        if (valA > valB) return order === 'desc' ? -1 : 1;
+        return 0;
+      });
+    }
+
+    const start = (page - 1) * limit;
+    data = data.slice(start, start + limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
+  }
+
   private handleCascadeDelete(categoryId: string) {
     const articles = this.storage.getArticles();
 

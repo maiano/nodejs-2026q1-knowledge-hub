@@ -32,11 +32,18 @@ export class CategoryController {
 
   @Get()
   findAll(@Query() query: PaginationSortDto) {
-    if (!hasQueryParams(query)) {
+    const hasPagination = hasQueryParams(query);
+
+    if (!hasPagination) {
       return this.service.findAll();
     }
 
-    return this.service.findAll();
+    return this.service.findPaginated({
+      page: query.page ?? 1,
+      limit: query.limit ?? 10,
+      sortBy: query.sortBy,
+      order: query.order ?? 'asc',
+    });
   }
 
   @Get(':id')
