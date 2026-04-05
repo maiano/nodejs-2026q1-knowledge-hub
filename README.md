@@ -1,84 +1,194 @@
-# Knowledge Hub
+# Knowledge Hub API
+
+## Description
+
+This project is a REST API built with **Nest.js** for a Knowledge Hub platform.
+
+The application allows managing:
+
+* Users
+* Articles
+* Categories
+* Comments
+
+The API supports creating, updating, deleting, and retrieving data, as well as filtering, pagination, and sorting for selected endpoints.
+
+---
+
+## Features
+
+* Modular architecture (NestJS modules)
+* DTO validation using `class-validator`
+* Global `ValidationPipe`
+* In-memory storage (easily replaceable with DB)
+* Swagger (OpenAPI) documentation at `/doc`
+* Article filtering by:
+
+  * `status`
+  * `categoryId`
+  * `tag`
+* Pagination & sorting (Hacker Scope)
+* Cascade delete logic:
+
+  * Deleting **User** → `authorId` in Articles becomes `null`, Comments are deleted
+  * Deleting **Category** → `categoryId` in Articles becomes `null`
+  * Deleting **Article** → related Comments are deleted
+* Password is never returned in API responses
+
+---
 
 ## Prerequisites
 
-- Git - [Download & Install Git](https://git-scm.com/downloads).
-- Node.js - [Download & Install Node.js](https://nodejs.org/en/download/) and the npm package manager.
+* Node.js (v24+) - https://nodejs.org/
+
+---
 
 ## Downloading
 
 ```
-git clone {repository URL}
+git clone <repository URL>
+cd nodejs-2026q1-knowledge-hub
 ```
 
-## Installing NPM modules
+---
+
+## Installing dependencies
 
 ```
 npm install
 ```
 
-## Running application
+---
+
+## Environment variables
+
+Rename `.env.example` file in the root
+
+---
+
+## Running the application
 
 ```
 npm start
 ```
 
-After starting the app on port (4000 as default) you can open
-in your browser OpenAPI documentation by typing http://localhost:4000/doc/.
-For more information about OpenAPI/Swagger please visit https://swagger.io/.
+Application will be available at:
+
+```
+http://localhost:4000
+```
+
+Swagger documentation:
+
+```
+http://localhost:4000/doc
+```
+
+---
+
+## API Overview
+
+### User (`/user`)
+
+* GET /user
+* GET /user/:id
+* POST /user
+* PUT /user/:id
+* DELETE /user/:id
+
+### Article (`/article`)
+
+* GET /article (supports filtering)
+* GET /article/:id
+* POST /article
+* PUT /article/:id
+* DELETE /article/:id
+
+### Category (`/category`)
+
+* GET /category
+* GET /category/:id
+* POST /category
+* PUT /category/:id
+* DELETE /category/:id
+
+### Comment (`/comment`)
+
+* GET /comment?articleId=...
+* POST /comment
+* DELETE /comment/:id
+
+---
+
+## Pagination & Sorting
+
+Supported on list endpoints (`/user`, `/article`, `/category`):
+
+Query params:
+
+* `page`
+* `limit`
+* `sortBy`
+* `order` (`asc` | `desc`)
+
+Response format:
+
+```json
+{
+  "data": [],
+  "total": 0,
+  "page": 1,
+  "limit": 10
+}
+```
+
+---
+
+## Filtering (Articles only)
+
+```
+GET /article?status=published&tag=nodejs
+```
+
+---
 
 ## Testing
 
-After application running open new terminal and enter:
-
-To run all tests without authorization
+Run all tests:
 
 ```
 npm run test
 ```
 
-To run only one of all test suites
-
-```
-npm run test -- <path to suite>
-```
-
-To run all test with authorization
+Run tests with authorization:
 
 ```
 npm run test:auth
 ```
 
-To run only specific test suite with authorization
+Run specific test:
 
 ```
-npm run test:auth -- <path to suite>
+npm run test -- <path>
 ```
 
-To run refresh token tests
-
-```
-npm run test:refresh
-```
-
-To run RBAC (role-based access control) tests
+RBAC tests:
 
 ```
 npm run test:rbac
 ```
 
-### Auto-fix and format
+Refresh token tests:
+
+```
+npm run test:refresh
+```
+
+---
+
+## Lint & Format
 
 ```
 npm run lint
-```
-
-```
 npm run format
 ```
-
-### Debugging in VSCode
-
-Press <kbd>F5</kbd> to debug.
-
-For more information, visit: https://code.visualstudio.com/docs/editor/debugging
