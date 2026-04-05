@@ -36,7 +36,12 @@ export class UserController {
       return this.service.findAll();
     }
 
-    return this.service.findAll();
+    return this.service.findPaginated({
+      page: query.page ?? 1,
+      limit: query.limit ?? 10,
+      sortBy: query.sortBy,
+      order: query.order ?? 'asc',
+    });
   }
 
   @Get(':id')
