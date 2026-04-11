@@ -15,6 +15,12 @@ The API supports creating, updating, deleting, and retrieving data, as well as f
 
 ---
 
+## Docker Image
+
+<https://hub.docker.com/r/maiano/knowledge-hub:latest>
+
+---
+
 ## Features
 
 * Modular architecture (NestJS modules)
