@@ -2,7 +2,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 RUN npm ci
 
@@ -18,13 +18,11 @@ ENV NODE_ENV=production
 
 RUN addgroup -S app && adduser -S app -G app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm cache clean --force
 
-COPY --from=builder /app/dist ./dist
-
-RUN chown -R app:app /app
+COPY --chown=app:app --from=builder /app/dist ./dist
 
 USER app
 
