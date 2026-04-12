@@ -40,11 +40,14 @@ services:
 
   adminer:
     image: adminer
+    restart: unless-stopped
     profiles: ["debug"]
     ports:
       - '8080:8080'
     networks:
       - app-network
+    depends_on:
+      - db
 
 networks:
   app-network:

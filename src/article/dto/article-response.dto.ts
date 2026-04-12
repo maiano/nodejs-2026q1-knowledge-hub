@@ -1,39 +1,31 @@
-import {
-  IsArray,
-  IsEnum,
-  IsOptional,
-  IsString,
-  MinLength,
-  IsUUID,
-} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArticleStatus } from '../../common/enums/article-status.enum';
 
-export class CreateArticleDto {
+export class ArticleResponseDto {
+  @ApiProperty({
+    description: 'Article identifier',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440010',
+  })
+  id: string;
+
   @ApiProperty({
     description: 'Article title',
     example: 'NestJS Validation Best Practices',
-    minLength: 1,
   })
-  @IsString()
-  @MinLength(1)
   title: string;
 
   @ApiProperty({
     description: 'Article body content',
     example: 'Detailed article content goes here.',
-    minLength: 1,
   })
-  @IsString()
-  @MinLength(1)
   content: string;
 
   @ApiProperty({
-    description: 'Current article publication status',
+    description: 'Article publication status',
     enum: ArticleStatus,
     example: ArticleStatus.DRAFT,
   })
-  @IsEnum(ArticleStatus)
   status: ArticleStatus;
 
   @ApiPropertyOptional({
@@ -42,9 +34,7 @@ export class CreateArticleDto {
     nullable: true,
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  @IsOptional()
-  @IsUUID()
-  authorId?: string | null;
+  authorId: string | null;
 
   @ApiPropertyOptional({
     description: 'Optional category identifier',
@@ -52,15 +42,24 @@ export class CreateArticleDto {
     nullable: true,
     example: '550e8400-e29b-41d4-a716-446655440001',
   })
-  @IsOptional()
-  @IsUUID()
-  categoryId?: string | null;
+  categoryId: string | null;
 
   @ApiProperty({
     description: 'Article tags',
     type: [String],
     example: ['nestjs', 'swagger'],
   })
-  @IsArray()
   tags: string[];
+
+  @ApiProperty({
+    description: 'Creation timestamp in milliseconds',
+    example: 1712923200000,
+  })
+  createdAt: number;
+
+  @ApiProperty({
+    description: 'Last update timestamp in milliseconds',
+    example: 1712923200000,
+  })
+  updatedAt: number;
 }
