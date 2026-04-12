@@ -88,7 +88,7 @@ export class CommentController {
   @ApiNoContentResponse({ description: 'Comment deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid comment id format' })
   @ApiNotFoundResponse({ description: 'Comment was not found' })
-  delete(@Param('id', new ParseUUIDPipe()) id: string) {
-    this.service.delete(id);
+  async delete(@Param('id', new ParseUUIDPipe()) id: string) {
+    await this.service.delete(id);
   }
 }

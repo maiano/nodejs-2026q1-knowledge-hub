@@ -30,16 +30,28 @@ export class CategoryService {
         where: { id },
         data: dto,
       });
-    } catch {
-      throw new NotFoundException();
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2025'
+      ) {
+        throw new NotFoundException();
+      }
+      throw e;
     }
   }
 
   async delete(id: string) {
     try {
       await this.prisma.category.delete({ where: { id } });
-    } catch {
-      throw new NotFoundException();
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2025'
+      ) {
+        throw new NotFoundException();
+      }
+      throw e;
     }
   }
 
@@ -51,14 +63,14 @@ export class CategoryService {
   }: {
     page: number;
     limit: number;
-    sortBy?: (typeof ALLOWED_SORT)[number];
+    sortBy?: string;
     order: 'asc' | 'desc';
   }) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.max(1, limit);
 
     const orderBy: Prisma.CategoryOrderByWithRelationInput =
-      sortBy && ALLOWED_SORT.includes(sortBy)
+      sortBy && ALLOWED_SORT.includes(sortBy as (typeof ALLOWED_SORT)[number])
         ? { [sortBy]: order }
         : { name: order };
 

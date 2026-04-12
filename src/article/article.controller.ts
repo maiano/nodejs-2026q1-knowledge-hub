@@ -140,7 +140,7 @@ export class ArticleController {
   @ApiNoContentResponse({ description: 'Article deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid article id format' })
   @ApiNotFoundResponse({ description: 'Article was not found' })
-  delete(@Param('id', new ParseUUIDPipe()) id: string) {
-    this.service.delete(id);
+  async delete(@Param('id', new ParseUUIDPipe()) id: string) {
+    await this.service.delete(id);
   }
 }

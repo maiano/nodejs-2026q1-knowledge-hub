@@ -2,8 +2,6 @@ import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-const ALLOWED_SORT = ['name', 'id'] as const;
-
 export class PaginationSortDto {
   @ApiPropertyOptional({
     description: 'Page number starting from 1',
@@ -32,8 +30,7 @@ export class PaginationSortDto {
     example: 'createdAt',
   })
   @IsOptional()
-  @IsIn(ALLOWED_SORT)
-  sortBy?: (typeof ALLOWED_SORT)[number];
+  sortBy?: string;
 
   @ApiPropertyOptional({
     description: 'Sorting direction',

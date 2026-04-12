@@ -81,11 +81,15 @@ export class ArticleService {
 
   async delete(id: string) {
     try {
-      await this.prisma.article.delete({
-        where: { id },
-      });
-    } catch {
-      throw new NotFoundException();
+      await this.prisma.article.delete({ where: { id } });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2025'
+      ) {
+        throw new NotFoundException();
+      }
+      throw e;
     }
   }
 

@@ -10,6 +10,8 @@ import { mapUser } from '../common/utils/mappers';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 
+const ALLOWED_SORT = ['id', 'login', 'role', 'createdAt', 'updatedAt'] as const;
+
 @Injectable()
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
@@ -105,13 +107,17 @@ export class UserService {
     order: 'asc' | 'desc';
   }) {
     const skip = (page - 1) * limit;
+    const safeSortBy =
+      sortBy && ALLOWED_SORT.includes(sortBy as (typeof ALLOWED_SORT)[number])
+        ? sortBy
+        : undefined;
 
     const [total, users] = await this.prisma.$transaction([
       this.prisma.user.count(),
       this.prisma.user.findMany({
         skip,
         take: limit,
-        orderBy: sortBy ? { [sortBy]: order } : undefined,
+        orderBy: safeSortBy ? { [safeSortBy]: order } : undefined,
       }),
     ]);
 

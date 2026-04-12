@@ -141,7 +141,7 @@ export class CategoryController {
   @ApiNoContentResponse({ description: 'Category deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid category id format' })
   @ApiNotFoundResponse({ description: 'Category was not found' })
-  delete(@Param('id', new ParseUUIDPipe()) id: string) {
-    this.service.delete(id);
+  async delete(@Param('id', new ParseUUIDPipe()) id: string) {
+    await this.service.delete(id);
   }
 }

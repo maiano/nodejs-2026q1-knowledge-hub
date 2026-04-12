@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { mapComment } from '../common/utils/mappers';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CommentService {
@@ -59,8 +60,14 @@ export class CommentService {
   async delete(id: string) {
     try {
       await this.prisma.comment.delete({ where: { id } });
-    } catch {
-      throw new NotFoundException();
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2025'
+      ) {
+        throw new NotFoundException();
+      }
+      throw e;
     }
   }
 }

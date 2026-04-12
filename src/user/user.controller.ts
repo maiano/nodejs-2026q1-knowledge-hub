@@ -139,7 +139,7 @@ export class UserController {
   @ApiNoContentResponse({ description: 'User deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid user id format' })
   @ApiNotFoundResponse({ description: 'User was not found' })
-  delete(@Param('id', new ParseUUIDPipe()) id: string) {
-    this.service.delete(id);
+  async delete(@Param('id', new ParseUUIDPipe()) id: string) {
+    await this.service.delete(id);
   }
 }
