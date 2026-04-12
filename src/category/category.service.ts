@@ -1,112 +1,81 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { Prisma } from '@prisma/client';
 
-import { InMemoryStorage } from '../storage/in-memory.storage';
-import { Category } from './category.entity';
-import { CreateCategoryDto } from 'src/category/dto/create-category.dto';
-import { UpdateCategoryDto } from 'src/category/dto/update-category.dto';
+const ALLOWED_SORT = ['name', 'id'] as const;
 
 @Injectable()
 export class CategoryService {
-  constructor(private readonly storage: InMemoryStorage) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.storage.getCategories();
+  async findAll() {
+    return this.prisma.category.findMany();
   }
 
-  findById(id: string) {
-    const category = this.storage.getCategories().find((c) => c.id === id);
-
-    if (!category) {
-      throw new NotFoundException();
-    }
-
-    return category;
-  }
-
-  create(dto: CreateCategoryDto) {
-    const categories = this.storage.getCategories();
-
-    const category: Category = {
-      id: randomUUID(),
-      name: dto.name,
-      description: dto.description,
-    };
-
-    categories.push(category);
-
-    return category;
-  }
-
-  update(id: string, dto: UpdateCategoryDto) {
-    const category = this.storage.getCategories().find((c) => c.id === id);
-
+  async findById(id: string) {
+    const category = await this.prisma.category.findUnique({ where: { id } });
     if (!category) throw new NotFoundException();
-
-    category.name = dto.name;
-    category.description = dto.description;
-
     return category;
   }
 
-  delete(id: string) {
-    const categories = this.storage.getCategories();
-
-    const exists = categories.find((c) => c.id === id);
-
-    if (!exists) {
-      throw new NotFoundException();
-    }
-
-    this.handleCascadeDelete(id);
-
-    this.storage.setCategories(categories.filter((c) => c.id !== id));
+  async create(dto: CreateCategoryDto) {
+    return this.prisma.category.create({ data: dto });
   }
 
-  findPaginated({
+  async update(id: string, dto: UpdateCategoryDto) {
+    try {
+      return await this.prisma.category.update({
+        where: { id },
+        data: dto,
+      });
+    } catch {
+      throw new NotFoundException();
+    }
+  }
+
+  async delete(id: string) {
+    try {
+      await this.prisma.category.delete({ where: { id } });
+    } catch {
+      throw new NotFoundException();
+    }
+  }
+
+  async findPaginated({
     page,
     limit,
     sortBy,
-    order,
+    order = 'asc',
   }: {
     page: number;
     limit: number;
-    sortBy?: string;
+    sortBy?: (typeof ALLOWED_SORT)[number];
     order: 'asc' | 'desc';
   }) {
-    let data = [...this.storage.getCategories()];
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, limit);
 
-    const total = data.length;
+    const orderBy: Prisma.CategoryOrderByWithRelationInput =
+      sortBy && ALLOWED_SORT.includes(sortBy)
+        ? { [sortBy]: order }
+        : { name: order };
 
-    if (sortBy) {
-      data.sort((a, b) => {
-        const valA = a[sortBy];
-        const valB = b[sortBy];
-
-        if (valA < valB) return order === 'desc' ? 1 : -1;
-        if (valA > valB) return order === 'desc' ? -1 : 1;
-        return 0;
-      });
-    }
-
-    const start = (page - 1) * limit;
-    data = data.slice(start, start + limit);
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.category.count({}),
+      this.prisma.category.findMany({
+        orderBy,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
+      }),
+    ]);
 
     return {
       data,
       total,
-      page,
-      limit,
+      page: safePage,
+      limit: safeLimit,
     };
-  }
-
-  private handleCascadeDelete(categoryId: string) {
-    const articles = this.storage.getArticles();
-
-    articles.forEach((a) => {
-      if (a.categoryId === categoryId) {
-        a.categoryId = null;
-      }
-    });
   }
 }

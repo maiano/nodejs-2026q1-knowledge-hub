@@ -3,62 +3,54 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import * as bcrypt from 'bcrypt';
-
-import { InMemoryStorage } from '../storage/in-memory.storage';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
-import { User } from './user.entity';
-import { UserRole } from '../common/enums/user-role.enum';
+import { mapUser } from '../common/utils/mappers';
+import * as bcrypt from 'bcrypt';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly storage: InMemoryStorage) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  private sanitize(user: User) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...rest } = user;
-    return rest;
+  async findAll() {
+    const users = await this.prisma.user.findMany();
+    return users.map(mapUser);
   }
 
-  findAll() {
-    return this.storage.getUsers().map((u) => this.sanitize(u));
-  }
-
-  findById(id: string) {
-    const user = this.storage.getUsers().find((u) => u.id === id);
+  async findById(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
 
     if (!user) {
       throw new NotFoundException();
     }
 
-    return this.sanitize(user);
+    return mapUser(user);
   }
 
   async create(dto: CreateUserDto) {
-    const users = this.storage.getUsers();
+    const salt = parseInt(process.env.CRYPT_SALT ?? '10');
 
-    const now = Date.now();
+    const password = await bcrypt.hash(dto.password, salt);
 
-    const newUser: User = {
-      id: randomUUID(),
-      login: dto.login,
-      password: await bcrypt.hash(dto.password, 10),
-      role: dto.role ?? UserRole.VIEWER,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const user = await this.prisma.user.create({
+      data: {
+        login: dto.login,
+        password,
+        role: (dto.role?.toUpperCase() ?? 'VIEWER') as UserRole,
+      },
+    });
 
-    users.push(newUser);
-
-    return this.sanitize(newUser);
+    return mapUser(user);
   }
 
   async updatePassword(id: string, dto: UpdatePasswordDto) {
-    const users = this.storage.getUsers();
-
-    const user = users.find((u) => u.id === id);
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
 
     if (!user) {
       throw new NotFoundException();
@@ -70,26 +62,38 @@ export class UserService {
       throw new ForbiddenException();
     }
 
-    user.password = await bcrypt.hash(dto.newPassword, 10);
-    user.updatedAt = Date.now();
+    const salt = parseInt(process.env.CRYPT_SALT ?? '10');
 
-    return this.sanitize(user);
+    const password = await bcrypt.hash(dto.newPassword, salt);
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { password },
+    });
+
+    return mapUser(updated);
   }
 
-  delete(id: string) {
-    const users = this.storage.getUsers();
-    const user = users.find((u) => u.id === id);
+  async delete(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
 
     if (!user) {
       throw new NotFoundException();
     }
 
-    this.handleCascadeDelete(id);
-
-    this.storage.setUsers(users.filter((u) => u.id !== id));
+    await this.prisma.$transaction([
+      this.prisma.comment.deleteMany({
+        where: { authorId: id },
+      }),
+      this.prisma.user.delete({
+        where: { id },
+      }),
+    ]);
   }
 
-  findPaginated({
+  async findPaginated({
     page,
     limit,
     sortBy,
@@ -100,42 +104,22 @@ export class UserService {
     sortBy?: string;
     order: 'asc' | 'desc';
   }) {
-    let data = [...this.storage.getUsers()];
+    const skip = (page - 1) * limit;
 
-    const total = data.length;
-
-    if (sortBy) {
-      data.sort((a, b) => {
-        const valA = a[sortBy];
-        const valB = b[sortBy];
-
-        if (valA < valB) return order === 'desc' ? 1 : -1;
-        if (valA > valB) return order === 'desc' ? -1 : 1;
-        return 0;
-      });
-    }
-
-    const start = (page - 1) * limit;
-    data = data.slice(start, start + limit);
+    const [total, users] = await this.prisma.$transaction([
+      this.prisma.user.count(),
+      this.prisma.user.findMany({
+        skip,
+        take: limit,
+        orderBy: sortBy ? { [sortBy]: order } : undefined,
+      }),
+    ]);
 
     return {
-      data: data.map((u) => this.sanitize(u)),
+      data: users.map(mapUser),
       total,
       page,
       limit,
     };
-  }
-
-  private handleCascadeDelete(userId: string) {
-    const articles = this.storage.getArticles();
-    const comments = this.storage.getComments();
-
-    articles.forEach((a) => {
-      if (a.authorId === userId) {
-        a.authorId = null;
-      }
-    });
-
-    this.storage.setComments(comments.filter((c) => c.authorId !== userId));
   }
 }

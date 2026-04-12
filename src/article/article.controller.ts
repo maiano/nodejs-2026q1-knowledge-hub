@@ -58,7 +58,7 @@ export class ArticleController {
   @ApiBadRequestResponse({
     description: 'Invalid filtering, pagination, or sorting query',
   })
-  findAll(@Query() query: FilterArticleDto) {
+  async findAll(@Query() query: FilterArticleDto) {
     const hasFilters =
       query.status !== undefined ||
       query.categoryId !== undefined ||
@@ -71,7 +71,7 @@ export class ArticleController {
       query.order !== undefined;
 
     if (hasFilters && !hasPagination) {
-      return this.service.findFiltered(query).data;
+      return (await this.service.findFiltered(query)).data;
     }
 
     if (hasFilters || hasPagination) {
