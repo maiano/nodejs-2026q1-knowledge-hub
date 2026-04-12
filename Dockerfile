@@ -6,6 +6,8 @@ COPY package.json package-lock.json ./
 
 RUN npm ci
 
+RUN npx prisma generate
+
 COPY . .
 
 RUN npm run build
@@ -21,6 +23,9 @@ RUN addgroup -S app && adduser -S app -G app
 COPY package.json package-lock.json ./
 
 RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 COPY --chown=app:app --from=builder /app/dist ./dist
 

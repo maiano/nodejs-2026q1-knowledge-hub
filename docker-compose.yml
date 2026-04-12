@@ -2,6 +2,7 @@ services:
   app:
     build: .
     container_name: knowledge-hub-app
+    command: sh -c "npx prisma migrate deploy && node dist/main"
     ports:
       - '4000:4000'
     env_file:
