@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,7 +9,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { mapUser } from '../common/utils/mappers';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 
 const ALLOWED_SORT = ['id', 'login', 'role', 'createdAt', 'updatedAt'] as const;
 
@@ -38,13 +39,25 @@ export class UserService {
 
     const password = await bcrypt.hash(dto.password, salt);
 
-    const user = await this.prisma.user.create({
-      data: {
-        login: dto.login,
-        password,
-        role: (dto.role?.toUpperCase() ?? 'VIEWER') as UserRole,
-      },
-    });
+    let user;
+
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          login: dto.login,
+          password,
+          role: (dto.role?.toUpperCase() ?? 'VIEWER') as UserRole,
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException();
+      }
+      throw e;
+    }
 
     return mapUser(user);
   }
