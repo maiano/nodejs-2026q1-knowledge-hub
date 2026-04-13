@@ -6,6 +6,9 @@ COPY package.json package-lock.json ./
 
 RUN npm ci
 
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
 RUN npx prisma generate
 
 COPY . .
@@ -25,6 +28,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 COPY --chown=app:app --from=builder /app/dist ./dist
@@ -33,4 +37,4 @@ USER app
 
 EXPOSE 4000
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
