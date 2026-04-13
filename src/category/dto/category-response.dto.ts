@@ -1,22 +1,22 @@
-import { IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateCategoryDto {
+export class CategoryResponseDto {
+  @ApiProperty({
+    description: 'Category identifier',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  id: string;
+
   @ApiProperty({
     description: 'Category name',
     example: 'Backend',
-    minLength: 1,
   })
-  @IsString()
-  @MinLength(1)
   name: string;
 
   @ApiProperty({
     description: 'Category description',
     example: 'Backend development related materials',
-    minLength: 1,
   })
-  @IsString()
-  @MinLength(1)
   description: string;
 }

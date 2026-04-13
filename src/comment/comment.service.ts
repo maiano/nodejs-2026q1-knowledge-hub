@@ -3,63 +3,71 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-
-import { InMemoryStorage } from '../storage/in-memory.storage';
-import { Comment } from './comment.entity';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { mapComment } from '../common/utils/mappers';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CommentService {
-  constructor(private readonly storage: InMemoryStorage) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  findByArticle(articleId: string) {
-    return this.storage.getComments().filter((c) => c.articleId === articleId);
-  }
-
-  findById(id: string) {
-    const comment = this.storage.getComments().find((c) => c.id === id);
-
-    if (!comment) {
-      throw new NotFoundException();
-    }
-
-    return comment;
-  }
-
-  create(dto: CreateCommentDto) {
-    const articles = this.storage.getArticles();
-
-    const articleExists = articles.find((a) => a.id === dto.articleId);
-
-    if (!articleExists) {
+  async findByArticle(articleId: string) {
+    if (!articleId) {
       throw new UnprocessableEntityException();
     }
 
-    const comments = this.storage.getComments();
+    const article = await this.prisma.article.findUnique({
+      where: { id: articleId },
+    });
 
-    const comment: Comment = {
-      id: randomUUID(),
-      content: dto.content,
-      articleId: dto.articleId,
-      authorId: dto.authorId ?? null,
-      createdAt: Date.now(),
-    };
-
-    comments.push(comment);
-
-    return comment;
-  }
-
-  delete(id: string) {
-    const comments = this.storage.getComments();
-
-    const exists = comments.find((c) => c.id === id);
-
-    if (!exists) {
-      throw new NotFoundException();
+    if (!article) {
+      throw new UnprocessableEntityException();
     }
 
-    this.storage.setComments(comments.filter((c) => c.id !== id));
+    const comments = await this.prisma.comment.findMany({
+      where: { articleId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return comments.map(mapComment);
+  }
+
+  async findById(id: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) throw new NotFoundException();
+    return mapComment(comment);
+  }
+
+  async create(dto: CreateCommentDto) {
+    const article = await this.prisma.article.findUnique({
+      where: { id: dto.articleId },
+    });
+
+    if (!article) throw new UnprocessableEntityException();
+
+    const comment = await this.prisma.comment.create({
+      data: {
+        content: dto.content,
+        articleId: dto.articleId,
+        authorId: dto.authorId ?? null,
+      },
+    });
+
+    return mapComment(comment);
+  }
+
+  async delete(id: string) {
+    try {
+      await this.prisma.comment.delete({ where: { id } });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2025'
+      ) {
+        throw new NotFoundException();
+      }
+      throw e;
+    }
   }
 }
