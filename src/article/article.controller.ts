@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Req,
   Param,
   ParseUUIDPipe,
   Post,
@@ -30,6 +31,14 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { FilterArticleDto } from './dto/filter-article.dto';
 import { ArticleResponseDto } from './dto/article-response.dto';
 import { getPaginatedResponseSchema } from '../common/swagger/paginated-response.schema';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Request } from 'express';
+
+interface RequestWithUser extends Request {
+  user: JwtPayload;
+}
 
 @Controller('article')
 @ApiTags('Articles')
@@ -99,17 +108,19 @@ export class ArticleController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.EDITOR)
   @ApiOperation({ summary: 'Create article' })
   @ApiCreatedResponse({
     description: 'Article created successfully',
     type: ArticleResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Invalid request body' })
-  create(@Body() dto: CreateArticleDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateArticleDto, @Req() req: RequestWithUser) {
+    return this.service.create(dto, req.user);
   }
 
   @Put(':id')
+  @Roles(UserRole.ADMIN, UserRole.EDITOR)
   @ApiOperation({ summary: 'Update article' })
   @ApiParam({
     name: 'id',
@@ -125,11 +136,13 @@ export class ArticleController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateArticleDto,
+    @Req() req: RequestWithUser,
   ) {
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, req.user);
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.EDITOR)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete article' })
   @ApiParam({
@@ -140,7 +153,10 @@ export class ArticleController {
   @ApiNoContentResponse({ description: 'Article deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid article id format' })
   @ApiNotFoundResponse({ description: 'Article was not found' })
-  async delete(@Param('id', new ParseUUIDPipe()) id: string) {
-    await this.service.delete(id);
+  async delete(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    await this.service.delete(id, req.user);
   }
 }

@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { FilterArticleDto } from './dto/filter-article.dto';
 import { mapArticle } from '../common/utils/mappers';
 import { ArticleStatus, Prisma } from '@prisma/client';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class ArticleService {
@@ -29,12 +35,16 @@ export class ArticleService {
     return mapArticle(article);
   }
 
-  async create(dto: CreateArticleDto) {
+  async create(dto: CreateArticleDto, actor: JwtPayload) {
     const { tags = [], status, ...rest } = dto;
+
+    const authorId =
+      actor.role === UserRole.EDITOR ? actor.userId : (dto.authorId ?? null);
 
     const article = await this.prisma.article.create({
       data: {
         ...rest,
+        authorId,
         status: (status?.toUpperCase() ?? 'DRAFT') as ArticleStatus,
         tags: {
           connectOrCreate: tags.map((name) => ({
@@ -49,19 +59,28 @@ export class ArticleService {
     return mapArticle(article);
   }
 
-  async update(id: string, dto: UpdateArticleDto) {
+  async update(id: string, dto: UpdateArticleDto, actor: JwtPayload) {
     const exists = await this.prisma.article.findUnique({
       where: { id },
     });
 
     if (!exists) throw new NotFoundException();
 
+    if (actor.role === UserRole.EDITOR && exists.authorId !== actor.userId) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
     const { tags, status, ...rest } = dto;
+
+    const safeRest =
+      actor.role === UserRole.EDITOR
+        ? { ...rest, authorId: actor.userId }
+        : rest;
 
     const article = await this.prisma.article.update({
       where: { id },
       data: {
-        ...rest,
+        ...safeRest,
         ...(status && { status: status.toUpperCase() as ArticleStatus }),
         ...(tags !== undefined && {
           tags: {
@@ -79,7 +98,18 @@ export class ArticleService {
     return mapArticle(article);
   }
 
-  async delete(id: string) {
+  async delete(id: string, actor: JwtPayload) {
+    const article = await this.prisma.article.findUnique({
+      where: { id },
+      select: { id: true, authorId: true },
+    });
+
+    if (!article) throw new NotFoundException();
+
+    if (actor.role === UserRole.EDITOR && article.authorId !== actor.userId) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
     try {
       await this.prisma.article.delete({ where: { id } });
     } catch (e) {

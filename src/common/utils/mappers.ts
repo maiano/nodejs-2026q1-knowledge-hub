@@ -2,15 +2,31 @@ import { User, Article, Comment, Tag } from '@prisma/client';
 import { UserRole } from '../enums/user-role.enum';
 import { ArticleStatus } from '../enums/article-status.enum';
 
-export const mapUserRole = (role: string): UserRole => {
-  const normalized = role.toLowerCase() as UserRole;
-  if (!Object.values(UserRole).includes(normalized)) {
-    throw new Error(`Invalid role: ${role}`);
+import { UserRole as PrismaUserRole } from '@prisma/client';
+
+export const mapRoleFromPrisma = (role: PrismaUserRole): UserRole => {
+  switch (role) {
+    case 'ADMIN':
+      return UserRole.ADMIN;
+    case 'EDITOR':
+      return UserRole.EDITOR;
+    case 'VIEWER':
+      return UserRole.VIEWER;
   }
-  return normalized;
 };
 
-export const mapArticleStatus = (status: string): ArticleStatus => {
+export const mapRoleToPrisma = (role: UserRole): PrismaUserRole => {
+  switch (role) {
+    case UserRole.ADMIN:
+      return 'ADMIN';
+    case UserRole.EDITOR:
+      return 'EDITOR';
+    case UserRole.VIEWER:
+      return 'VIEWER';
+  }
+};
+
+const mapArticleStatus = (status: string): ArticleStatus => {
   const normalized = status.toLowerCase() as ArticleStatus;
   if (!Object.values(ArticleStatus).includes(normalized)) {
     throw new Error(`Invalid status: ${status}`);
@@ -39,7 +55,7 @@ export const mapUser = (user: User) => {
 
   return {
     ...rest,
-    role: mapUserRole(role),
+    role: mapRoleFromPrisma(role),
     createdAt: createdAt.getTime(),
     updatedAt: updatedAt.getTime(),
   };

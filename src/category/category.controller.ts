@@ -30,6 +30,8 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PaginationSortDto } from '../common/dto/pagination-sort.dto';
 import { CategoryResponseDto } from './dto/category-response.dto';
 import { getPaginatedResponseSchema } from '../common/swagger/paginated-response.schema';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
 
 function hasQueryParams(query: PaginationSortDto): boolean {
   return (
@@ -98,6 +100,7 @@ export class CategoryController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create category' })
   @ApiCreatedResponse({
     description: 'Category created successfully',
@@ -109,6 +112,7 @@ export class CategoryController {
   }
 
   @Put(':id')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update category' })
   @ApiParam({
     name: 'id',
@@ -131,6 +135,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete category' })
   @ApiParam({

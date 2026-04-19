@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { JwtPayload } from '../strategies/jwt.strategy';
@@ -24,20 +25,20 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredRoles || requiredRoles.length === 0) {
-      return true;
-    }
-
     const request = context.switchToHttp().getRequest<RequestWithUser>();
-
     const user = request.user;
+    const method = request.method.toUpperCase();
 
     if (!user) {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    if (!requiredRoles.includes(user.role)) {
+    if (requiredRoles?.length && !requiredRoles.includes(user.role)) {
       throw new ForbiddenException('Insufficient permissions');
+    }
+
+    if (user.role === UserRole.VIEWER && method !== 'GET') {
+      throw new ForbiddenException('Viewers can only perform read operations');
     }
 
     return true;

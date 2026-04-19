@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -7,6 +8,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { mapComment } from '../common/utils/mappers';
 import { Prisma } from '@prisma/client';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class CommentService {
@@ -39,25 +42,39 @@ export class CommentService {
     return mapComment(comment);
   }
 
-  async create(dto: CreateCommentDto) {
+  async create(dto: CreateCommentDto, actor: JwtPayload) {
     const article = await this.prisma.article.findUnique({
       where: { id: dto.articleId },
     });
 
     if (!article) throw new UnprocessableEntityException();
 
+    const authorId =
+      actor.role === UserRole.EDITOR ? actor.userId : (dto.authorId ?? null);
+
     const comment = await this.prisma.comment.create({
       data: {
         content: dto.content,
         articleId: dto.articleId,
-        authorId: dto.authorId ?? null,
+        authorId,
       },
     });
 
     return mapComment(comment);
   }
 
-  async delete(id: string) {
+  async delete(id: string, actor: JwtPayload) {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id },
+      select: { id: true, authorId: true },
+    });
+
+    if (!comment) throw new NotFoundException();
+
+    if (actor.role === UserRole.EDITOR && comment.authorId !== actor.userId) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
     try {
       await this.prisma.comment.delete({ where: { id } });
     } catch (e) {

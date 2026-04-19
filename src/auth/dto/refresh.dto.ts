@@ -1,9 +1,9 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RefreshDto {
   @ApiProperty()
   @IsString()
-  @IsNotEmpty()
-  refreshToken: string;
+  @IsOptional()
+  refreshToken?: string;
 }

@@ -5,6 +5,10 @@ import { CommentModule } from 'src/comment/comment.module';
 import { CategoryModule } from 'src/category/category.module';
 import { AppController } from 'src/app.controller';
 import { PrismaModule } from 'prisma/prisma.module';
+import { AuthModule } from 'src/auth/auth.module';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Module({
   imports: [
@@ -13,8 +17,18 @@ import { PrismaModule } from 'prisma/prisma.module';
     ArticleModule,
     CommentModule,
     CategoryModule,
+    AuthModule,
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}

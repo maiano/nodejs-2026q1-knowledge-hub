@@ -21,6 +21,7 @@ async function bootstrap() {
     .setTitle('Knowledge Hub API')
     .setDescription('API documentation for Knowledge Hub')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, configSwagger);

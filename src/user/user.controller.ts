@@ -31,6 +31,8 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import { PaginationSortDto } from '../common/dto/pagination-sort.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { getPaginatedResponseSchema } from '../common/swagger/paginated-response.schema';
+import { UserRole } from '../common/enums/user-role.enum';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 function hasQueryParams(query: PaginationSortDto): boolean {
   return (
@@ -97,6 +99,7 @@ export class UserController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create user' })
   @ApiCreatedResponse({
     description: 'User created successfully',
@@ -108,6 +111,7 @@ export class UserController {
   }
 
   @Put(':id')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update user password' })
   @ApiParam({
     name: 'id',
@@ -129,6 +133,7 @@ export class UserController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete user' })
   @ApiParam({
