@@ -1,18 +1,48 @@
 import request from './lib/request';
 import { StatusCodes } from 'http-status-codes';
 import { usersRoutes, articlesRoutes } from './endpoints';
+import {
+  getTokenAndUserId,
+  shouldAuthorizationBeTested,
+  removeTokenUser,
+} from './utils';
+import { randomBytes } from 'crypto';
 
 describe('Custom features (e2e)', () => {
   const headers = { Accept: 'application/json' };
+  let mockUserId: string | undefined;
+
+  beforeAll(async () => {
+    if (shouldAuthorizationBeTested) {
+      const result = await getTokenAndUserId(request);
+      headers['Authorization'] = result.token;
+      mockUserId = result.mockUserId;
+    }
+  });
+
+  afterAll(async () => {
+    if (mockUserId) {
+      await removeTokenUser(request, mockUserId, headers);
+    }
+
+    if (headers['Authorization']) {
+      delete headers['Authorization'];
+    }
+  });
 
   describe('Pagination (Users)', () => {
     it('should return paginated users', async () => {
+      const user1 = `u1_${randomBytes(4).toString('hex')}`;
+      const user2 = `u2_${randomBytes(4).toString('hex')}`;
+
       await request
         .post(usersRoutes.create)
-        .send({ login: 'u1', password: '123' });
+        .set(headers)
+        .send({ login: user1, password: '123' });
       await request
         .post(usersRoutes.create)
-        .send({ login: 'u2', password: '123' });
+        .set(headers)
+        .send({ login: user2, password: '123' });
 
       const response = await request
         .get(`${usersRoutes.getAll}?page=1&limit=1`)
@@ -27,12 +57,17 @@ describe('Custom features (e2e)', () => {
 
   describe('Sorting (Users)', () => {
     it('should sort users by login desc', async () => {
+      const loginA = `aaa_${randomBytes(4).toString('hex')}`;
+      const loginZ = `zz_${randomBytes(4).toString('hex')}`;
+
       await request
         .post(usersRoutes.create)
-        .send({ login: 'aaa', password: '123' });
+        .set(headers)
+        .send({ login: loginA, password: '123' });
       await request
         .post(usersRoutes.create)
-        .send({ login: 'zz', password: '123' });
+        .set(headers)
+        .send({ login: loginZ, password: '123' });
 
       const response = await request
         .get(`${usersRoutes.getAll}?sortBy=login&order=desc&page=1&limit=10`)
@@ -42,15 +77,15 @@ describe('Custom features (e2e)', () => {
 
       const logins = response.body.data.map((u) => u.login);
 
-      expect(logins).toContain('zz');
-      expect(logins.indexOf('zz')).toBeLessThan(logins.indexOf('aaa'));
+      expect(logins).toContain(loginZ);
+      expect(logins.indexOf(loginZ)).toBeLessThan(logins.indexOf(loginA));
     });
   });
 
   describe('Filtering (Articles)', () => {
     it('should filter articles by status and tag', async () => {
-      await request.post(articlesRoutes.create).send({
-        title: 'a1',
+      await request.post(articlesRoutes.create).set(headers).send({
+        title: `a1_${randomBytes(4).toString('hex')}`,
         content: 'content',
         status: 'draft',
         authorId: null,
@@ -58,8 +93,8 @@ describe('Custom features (e2e)', () => {
         tags: ['node'],
       });
 
-      await request.post(articlesRoutes.create).send({
-        title: 'a2',
+      await request.post(articlesRoutes.create).set(headers).send({
+        title: `a2_${randomBytes(4).toString('hex')}`,
         content: 'content',
         status: 'published',
         authorId: null,
