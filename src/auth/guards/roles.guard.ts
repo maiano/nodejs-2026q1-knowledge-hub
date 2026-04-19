@@ -30,6 +30,9 @@ export class RolesGuard implements CanActivate {
     const method = request.method.toUpperCase();
 
     if (!user) {
+      if (!requiredRoles?.length) {
+        return true;
+      }
       throw new UnauthorizedException('User not authenticated');
     }
 
