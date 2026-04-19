@@ -17,6 +17,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { UserRole } from '../common/enums/user-role.enum';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class AuthService {
@@ -66,10 +67,45 @@ export class AuthService {
     );
   }
 
+  async logout(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_SECRET_REFRESH_KEY,
+      });
+
+      await this.prisma.tokenBlacklist.upsert({
+        where: {
+          token: refreshToken,
+        },
+        update: {
+          expiresAt: new Date(payload.exp * 1000),
+        },
+        create: {
+          token: refreshToken,
+          expiresAt: new Date(payload.exp * 1000),
+        },
+      });
+    } catch {
+      throw new ForbiddenException('Invalid or expired refresh token');
+    }
+  }
+
   async refresh(dto: RefreshDto) {
     if (!dto.refreshToken) {
       throw new UnauthorizedException('Refresh token is required');
     }
+
+    const blacklisted = await this.prisma.tokenBlacklist.findUnique({
+      where: { token: dto.refreshToken },
+    });
+    if (blacklisted) {
+      throw new ForbiddenException('Token has been invalidated');
+    }
+
     try {
       const payload = await this.jwtService.verifyAsync(dto.refreshToken, {
         secret: process.env.JWT_SECRET_REFRESH_KEY,
@@ -79,6 +115,13 @@ export class AuthService {
     } catch {
       throw new ForbiddenException('Invalid or expired refresh token');
     }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async cleanExpiredTokens() {
+    await this.prisma.tokenBlacklist.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
   }
 
   private generateTokens(userId: string, login: string, role: UserRole) {

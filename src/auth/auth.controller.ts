@@ -14,6 +14,9 @@ import { RefreshDto } from './dto/refresh.dto';
 import { Public } from './decorators/public.decorator';
 import { SkipThrottle, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
+const AUTH_THROTTLE_TTL_MS = Number(process.env.AUTH_THROTTLE_TTL_MS ?? 60000);
+const AUTH_THROTTLE_LIMIT = Number(process.env.AUTH_THROTTLE_LIMIT ?? 100);
+
 @UseGuards(ThrottlerGuard)
 @SkipThrottle()
 @ApiTags('Auth')
@@ -23,7 +26,9 @@ export class AuthController {
 
   @Public()
   @SkipThrottle({ default: false })
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({
+    default: { ttl: AUTH_THROTTLE_TTL_MS, limit: AUTH_THROTTLE_LIMIT },
+  })
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
@@ -33,7 +38,9 @@ export class AuthController {
 
   @Public()
   @SkipThrottle({ default: false })
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({
+    default: { ttl: AUTH_THROTTLE_TTL_MS, limit: AUTH_THROTTLE_LIMIT },
+  })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login and receive JWT tokens' })
@@ -47,5 +54,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access and refresh tokens' })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
+  }
+
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Logout and invalidate refresh token' })
+  logout(@Body() dto: RefreshDto) {
+    return this.authService.logout(dto.refreshToken);
   }
 }
