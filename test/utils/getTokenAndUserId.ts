@@ -1,12 +1,14 @@
 import { authRoutes } from '../endpoints';
-
-const createUserDto = {
-  login: 'TEST_AUTH_LOGIN',
-  password: 'Tu6!@#%&',
-};
+import promoteUserRole from './promoteUserRole';
+import { randomBytes } from 'crypto';
 
 const getTokenAndUserId = async (request) => {
-  // create user
+  const createUserDto = {
+    login: `TEST_AUTH_LOGIN_${randomBytes(6).toString('hex')}`,
+    password: 'Tu6!@#%&',
+  };
+
+  // create user (signup always yields a viewer per spec)
   const {
     body: { id: mockUserId },
   } = await request
@@ -14,7 +16,14 @@ const getTokenAndUserId = async (request) => {
     .set('Accept', 'application/json')
     .send(createUserDto);
 
-  // get token
+  if (mockUserId === undefined) {
+    throw new Error('Authorization is not implemented');
+  }
+
+  // promote directly in DB so base tests run as admin and can mutate
+  await promoteUserRole(mockUserId, 'admin');
+
+  // get token after promotion so the JWT payload role === 'admin'
   const {
     body: { accessToken, refreshToken },
   } = await request
@@ -22,7 +31,7 @@ const getTokenAndUserId = async (request) => {
     .set('Accept', 'application/json')
     .send(createUserDto);
 
-  if (mockUserId === undefined || accessToken === undefined) {
+  if (accessToken === undefined) {
     throw new Error('Authorization is not implemented');
   }
 

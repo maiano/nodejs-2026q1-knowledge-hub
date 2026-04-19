@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Req,
   Param,
   ParseUUIDPipe,
   Post,
@@ -27,6 +28,14 @@ import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { FindCommentsQueryDto } from './dto/find-comments-query.dto';
 import { CommentResponseDto } from './dto/comment-response.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Request } from 'express';
+
+interface RequestWithUser extends Request {
+  user: JwtPayload;
+}
 
 @Controller('comment')
 @ApiTags('Comments')
@@ -64,6 +73,7 @@ export class CommentController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.EDITOR)
   @ApiOperation({ summary: 'Create comment' })
   @ApiCreatedResponse({
     description: 'Comment created successfully',
@@ -73,11 +83,12 @@ export class CommentController {
   @ApiUnprocessableEntityResponse({
     description: 'Referenced article does not exist',
   })
-  create(@Body() dto: CreateCommentDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateCommentDto, @Req() req: RequestWithUser) {
+    return this.service.create(dto, req.user);
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.EDITOR)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete comment' })
   @ApiParam({
@@ -88,7 +99,10 @@ export class CommentController {
   @ApiNoContentResponse({ description: 'Comment deleted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid comment id format' })
   @ApiNotFoundResponse({ description: 'Comment was not found' })
-  async delete(@Param('id', new ParseUUIDPipe()) id: string) {
-    await this.service.delete(id);
+  async delete(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    await this.service.delete(id, req.user);
   }
 }

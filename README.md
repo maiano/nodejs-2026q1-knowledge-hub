@@ -4,14 +4,13 @@
 
 This project is a REST API built with **Nest.js** for a Knowledge Hub platform.
 
-The application allows managing:
+The API manages:
 
 * Users
 * Articles
 * Categories
 * Comments
-
-The API supports creating, updating, deleting, and retrieving data, as well as filtering, pagination, and sorting for selected endpoints.
+* Authentication and authorization (JWT access + refresh)
 
 ---
 
@@ -25,33 +24,31 @@ The API supports creating, updating, deleting, and retrieving data, as well as f
 
 * Modular architecture (NestJS modules)
 * DTO validation using `class-validator`
+* Prisma + PostgreSQL
 * Global `ValidationPipe`
-* In-memory storage (easily replaceable with DB)
 * Swagger (OpenAPI) documentation at `/doc`
-* Article filtering by:
-
-  * `status`
-  * `categoryId`
-  * `tag`
+* Auth endpoints: signup, login, refresh, logout
+* JWT access/refresh tokens
+* RBAC roles: `viewer`, `editor`, `admin`
+* Rate limiting for `/auth/signup` and `/auth/login`
+* Daily cron cleanup of expired refresh tokens in blacklist
+* Article filtering by `status`, `categoryId`, `tag`
 * Pagination & sorting (Hacker Scope)
-* Cascade delete logic:
-
-  * Deleting **User** → `authorId` in Articles becomes `null`, Comments are deleted
-  * Deleting **Category** → `categoryId` in Articles becomes `null`
-  * Deleting **Article** → related Comments are deleted
+* Cascade delete logic
 * Password is never returned in API responses
 
 ---
 
 ## Prerequisites
 
-* Node.js (v24+) - https://nodejs.org/
+* Node.js (v22.14+)
+* PostgreSQL (local or Docker)
 
 ---
 
 ## Downloading
 
-```
+```bash
 git clone <repository URL>
 cd nodejs-2026q1-knowledge-hub
 ```
@@ -60,7 +57,7 @@ cd nodejs-2026q1-knowledge-hub
 
 ## Installing dependencies
 
-```
+```bash
 npm install
 ```
 
@@ -68,133 +65,137 @@ npm install
 
 ## Environment variables
 
-Rename `.env.example` file in the root
+Create `.env` from `.env.example`.
+
+Required auth variables:
+
+* `JWT_SECRET_KEY`
+* `JWT_SECRET_REFRESH_KEY`
+* `JWT_ACCESS_TTL` (example: `15m`)
+* `JWT_REFRESH_TTL` (example: `7d`)
+* `AUTH_THROTTLE_LIMIT` (example: `100`)
+* `AUTH_THROTTLE_TTL_MS` (example: `60000`)
+
+Required DB variable:
+
+* `DATABASE_URL`
+
+---
+
+## Database (Prisma)
+
+Apply migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+Generate Prisma client:
+
+```bash
+npx prisma generate
+```
+
+Optional seed:
+
+```bash
+npx prisma db seed
+```
 
 ---
 
 ## Running the application
 
-```
+```bash
 npm start
 ```
 
-Application will be available at:
+App URL: `http://localhost:4000`  
+Swagger: `http://localhost:4000/doc`
 
-```
-http://localhost:4000
-```
+For dev mode:
 
-Swagger documentation:
-
-```
-http://localhost:4000/doc
+```bash
+npm run start:dev
 ```
 
 ---
 
-## API Overview
+## Auth quick check (for reviewer)
 
-### User (`/user`)
+1. Signup
 
-* GET /user
-* GET /user/:id
-* POST /user
-* PUT /user/:id
-* DELETE /user/:id
+```bash
+curl -X POST http://localhost:4000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"login":"reviewer_user","password":"Pass123!"}'
+```
 
-### Article (`/article`)
+2. Login (get access + refresh)
 
-* GET /article (supports filtering)
-* GET /article/:id
-* POST /article
-* PUT /article/:id
-* DELETE /article/:id
+```bash
+curl -X POST http://localhost:4000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"login":"reviewer_user","password":"Pass123!"}'
+```
 
-### Category (`/category`)
+3. Refresh
 
-* GET /category
-* GET /category/:id
-* POST /category
-* PUT /category/:id
-* DELETE /category/:id
+```bash
+curl -X POST http://localhost:4000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<refresh_token>"}'
+```
 
-### Comment (`/comment`)
+4. Logout (invalidates refresh token)
 
-* GET /comment?articleId=...
-* POST /comment
-* DELETE /comment/:id
+```bash
+curl -X POST http://localhost:4000/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<refresh_token>"}'
+```
+
+5. Refresh again with same token should return `403`
 
 ---
 
-## Pagination & Sorting
+## RBAC summary
 
-Supported on list endpoints (`/user`, `/article`, `/category`):
-
-Query params:
-
-* `page`
-* `limit`
-* `sortBy`
-* `order` (`asc` | `desc`)
-
-Response format:
-
-```json
-{
-  "data": [],
-  "total": 0,
-  "page": 1,
-  "limit": 10
-}
-```
-
----
-
-## Filtering (Articles only)
-
-```
-GET /article?status=published&tag=nodejs
-```
+* `viewer`: read-only (`GET`)
+* `editor`: `GET` + create/update own articles/comments
+* `admin`: full access
 
 ---
 
 ## Testing
 
-Run all tests:
+Auth e2e tests:
 
-```
-npm run test
-```
-
-Run tests with authorization:
-
-```
+```bash
 npm run test:auth
-```
-
-Run specific test:
-
-```
-npm run test -- <path>
 ```
 
 RBAC tests:
 
-```
+```bash
 npm run test:rbac
 ```
 
-Refresh token tests:
+Refresh tests:
 
-```
+```bash
 npm run test:refresh
 ```
 
----
+Important for e2e tests:
+
+* API must be running on `http://localhost:4000` (`npm start`)
+* DB must be available and migrations applied
+* If tests fail with `AggregateError`, first check API health: `GET /health`
 
 ## Lint & Format
 
-```
+```bash
 npm run lint
 npm run format
 ```

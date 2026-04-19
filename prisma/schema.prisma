@@ -83,3 +83,11 @@ model Tag {
 
   @@index([name])
 }
+
+model TokenBlacklist {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+
+  @@index([token])
+}
