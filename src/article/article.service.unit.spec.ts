@@ -1,9 +1,9 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { ForbiddenError, NotFoundError } from '../common/errors';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { UserRole } from '../common/enums/user-role.enum';
 import { clearPrismaMock, prismaMock } from '../common/testing/prisma.mock';
@@ -100,11 +100,11 @@ describe('ArticleService', () => {
       });
     });
 
-    it('throws NotFoundException when article does not exist', async () => {
+    it('throws NotFoundError when article does not exist', async () => {
       prismaMock.article.findUnique.mockResolvedValue(null);
 
       await expect(service.findById('missing-id')).rejects.toThrow(
-        NotFoundException,
+        new NotFoundError('Article missing-id not found'),
       );
     });
   });
@@ -186,15 +186,15 @@ describe('ArticleService', () => {
   });
 
   describe('update', () => {
-    it('throws NotFoundException when article does not exist', async () => {
+    it('throws NotFoundError when article does not exist', async () => {
       prismaMock.article.findUnique.mockResolvedValue(null);
 
       await expect(
         service.update('missing-id', { title: 'Updated title' }, adminActor),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(new NotFoundError('Article missing-id not found'));
     });
 
-    it('throws ForbiddenException when editor updates foreign article', async () => {
+    it('throws ForbiddenError when editor updates foreign article', async () => {
       prismaMock.article.findUnique.mockResolvedValue({
         id: 'article-id',
         authorId: 'other-user-id',
@@ -202,7 +202,7 @@ describe('ArticleService', () => {
 
       await expect(
         service.update('article-id', { title: 'Updated title' }, editorActor),
-      ).rejects.toThrow(new ForbiddenException('Insufficient permissions'));
+      ).rejects.toThrow(new ForbiddenError('Insufficient permissions'));
     });
 
     it('replaces tags and updates status for admin', async () => {
@@ -286,22 +286,22 @@ describe('ArticleService', () => {
   });
 
   describe('delete', () => {
-    it('throws NotFoundException when article does not exist', async () => {
+    it('throws NotFoundError when article does not exist', async () => {
       prismaMock.article.findUnique.mockResolvedValue(null);
 
       await expect(service.delete('missing-id', adminActor)).rejects.toThrow(
-        NotFoundException,
+        new NotFoundError('Article missing-id not found'),
       );
     });
 
-    it('throws ForbiddenException when editor deletes foreign article', async () => {
+    it('throws ForbiddenError when editor deletes foreign article', async () => {
       prismaMock.article.findUnique.mockResolvedValue({
         id: 'article-id',
         authorId: 'other-user-id',
       });
 
       await expect(service.delete('article-id', editorActor)).rejects.toThrow(
-        new ForbiddenException('Insufficient permissions'),
+        new ForbiddenError('Insufficient permissions'),
       );
     });
 
@@ -319,7 +319,7 @@ describe('ArticleService', () => {
       });
     });
 
-    it('converts Prisma P2025 to NotFoundException', async () => {
+    it('converts Prisma P2025 to NotFoundError', async () => {
       prismaMock.article.findUnique.mockResolvedValue({
         id: 'article-id',
         authorId: 'author-id',
@@ -332,7 +332,7 @@ describe('ArticleService', () => {
       );
 
       await expect(service.delete('article-id', adminActor)).rejects.toThrow(
-        NotFoundException,
+        new NotFoundError('Article article-id not found'),
       );
     });
   });

@@ -1,13 +1,10 @@
-import {
-  ForbiddenException,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { UnprocessableEntityException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { ForbiddenError, NotFoundError } from '../common/errors';
 import { UserRole } from '../common/enums/user-role.enum';
 import { clearPrismaMock, prismaMock } from '../common/testing/prisma.mock';
 import { CommentService } from './comment.service';
@@ -107,11 +104,11 @@ describe('CommentService', () => {
     });
   });
 
-  it('findById throws NotFoundException', async () => {
+  it('findById throws NotFoundError', async () => {
     prismaMock.comment.findUnique.mockResolvedValue(null);
 
     await expect(service.findById('missing-id')).rejects.toThrow(
-      NotFoundException,
+      new NotFoundError('Comment missing-id not found'),
     );
   });
 
@@ -178,22 +175,22 @@ describe('CommentService', () => {
     });
   });
 
-  it('delete throws NotFoundException when comment does not exist', async () => {
+  it('delete throws NotFoundError when comment does not exist', async () => {
     prismaMock.comment.findUnique.mockResolvedValue(null);
 
     await expect(service.delete('missing-id', adminActor)).rejects.toThrow(
-      NotFoundException,
+      new NotFoundError('Comment missing-id not found'),
     );
   });
 
-  it('delete throws ForbiddenException when editor deletes foreign comment', async () => {
+  it('delete throws ForbiddenError when editor deletes foreign comment', async () => {
     prismaMock.comment.findUnique.mockResolvedValue({
       id: 'comment-id',
       authorId: 'other-user-id',
     });
 
     await expect(service.delete('comment-id', editorActor)).rejects.toThrow(
-      new ForbiddenException('Insufficient permissions'),
+      new ForbiddenError('Insufficient permissions'),
     );
   });
 
@@ -211,7 +208,7 @@ describe('CommentService', () => {
     });
   });
 
-  it('delete converts P2025 to NotFoundException', async () => {
+  it('delete converts P2025 to NotFoundError', async () => {
     prismaMock.comment.findUnique.mockResolvedValue({
       id: 'comment-id',
       authorId: 'author-id',
@@ -224,7 +221,7 @@ describe('CommentService', () => {
     );
 
     await expect(service.delete('comment-id', adminActor)).rejects.toThrow(
-      NotFoundException,
+      new NotFoundError('Comment comment-id not found'),
     );
   });
 });
