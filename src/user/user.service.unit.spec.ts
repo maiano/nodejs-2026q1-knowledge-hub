@@ -248,7 +248,9 @@ describe('UserService', () => {
 
     it('deletes user and related comments via transaction', async () => {
       prismaMock.user.findUnique.mockResolvedValue(prismaUser);
-      prismaMock.comment.deleteMany.mockReturnValue('delete-comments-operation');
+      prismaMock.comment.deleteMany.mockReturnValue(
+        'delete-comments-operation',
+      );
       prismaMock.user.delete.mockReturnValue('delete-user-operation');
       prismaMock.$transaction.mockResolvedValue(undefined);
 
