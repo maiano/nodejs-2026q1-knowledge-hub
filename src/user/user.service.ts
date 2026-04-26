@@ -1,15 +1,11 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { mapUser } from '../common/utils/mappers';
 import * as bcrypt from 'bcrypt';
 import { Prisma, UserRole } from '@prisma/client';
+import { ForbiddenError, NotFoundError } from '../common/errors';
 
 const ALLOWED_SORT = ['id', 'login', 'role', 'createdAt', 'updatedAt'] as const;
 
@@ -28,7 +24,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException();
+      throw new NotFoundError(`User ${id} not found`);
     }
 
     return mapUser(user);
@@ -68,13 +64,13 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException();
+      throw new NotFoundError(`User ${id} not found`);
     }
 
     const isMatch = await bcrypt.compare(dto.oldPassword, user.password);
 
     if (!isMatch) {
-      throw new ForbiddenException();
+      throw new ForbiddenError('Old password is incorrect');
     }
 
     const salt = parseInt(process.env.CRYPT_SALT ?? '10');
@@ -95,7 +91,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException();
+      throw new NotFoundError(`User ${id} not found`);
     }
 
     await this.prisma.$transaction([

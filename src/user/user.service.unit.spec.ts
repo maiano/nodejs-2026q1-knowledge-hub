@@ -1,12 +1,9 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ForbiddenError, NotFoundError } from '../common/errors';
 import { UserRole } from '../common/enums/user-role.enum';
 import { clearPrismaMock, prismaMock } from '../common/testing/prisma.mock';
 import { UserService } from './user.service';
@@ -106,11 +103,11 @@ describe('UserService', () => {
       expect(result).not.toHaveProperty('password');
     });
 
-    it('throws NotFoundException when user does not exist', async () => {
+    it('throws NotFoundError when user does not exist', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
 
       await expect(service.findById('missing-id')).rejects.toThrow(
-        NotFoundException,
+        new NotFoundError('User missing-id not found'),
       );
     });
   });
@@ -179,7 +176,7 @@ describe('UserService', () => {
   });
 
   describe('updatePassword', () => {
-    it('throws NotFoundException when user does not exist', async () => {
+    it('throws NotFoundError when user does not exist', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -187,10 +184,10 @@ describe('UserService', () => {
           oldPassword: 'old-pass',
           newPassword: 'new-pass',
         }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(new NotFoundError('User missing-id not found'));
     });
 
-    it('throws ForbiddenException when old password is wrong', async () => {
+    it('throws ForbiddenError when old password is wrong', async () => {
       prismaMock.user.findUnique.mockResolvedValue(prismaUser);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
@@ -199,7 +196,7 @@ describe('UserService', () => {
           oldPassword: 'wrong-pass',
           newPassword: 'new-pass',
         }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(new ForbiddenError('Old password is incorrect'));
       expect(bcrypt.compare).toHaveBeenCalledWith(
         'wrong-pass',
         prismaUser.password,
@@ -238,11 +235,11 @@ describe('UserService', () => {
   });
 
   describe('delete', () => {
-    it('throws NotFoundException when user does not exist', async () => {
+    it('throws NotFoundError when user does not exist', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
 
       await expect(service.delete('missing-id')).rejects.toThrow(
-        NotFoundException,
+        new NotFoundError('User missing-id not found'),
       );
     });
 
