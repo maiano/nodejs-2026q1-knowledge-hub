@@ -1,13 +1,13 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  ForbiddenError,
+  UnauthorizedError,
+  ValidationError,
+} from '../common/errors';
 import { clearPrismaMock, prismaMock } from '../common/testing/prisma.mock';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AuthService } from './auth.service';
@@ -109,7 +109,7 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('password');
     });
 
-    it('throws BadRequestException on duplicate login', async () => {
+    it('throws ValidationError on duplicate login', async () => {
       vi.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
       prismaMock.user.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('duplicate login', {
@@ -119,26 +119,26 @@ describe('AuthService', () => {
       );
 
       await expect(service.signup(signupDto)).rejects.toThrow(
-        new BadRequestException(`Login "${signupDto.login}" is already taken`),
+        new ValidationError(`Login "${signupDto.login}" is already taken`),
       );
     });
   });
 
   describe('login', () => {
-    it('throws ForbiddenException when user is not found', async () => {
+    it('throws ForbiddenError when user is not found', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
 
       await expect(service.login(loginDto)).rejects.toThrow(
-        new ForbiddenException('Invalid login or password'),
+        new ForbiddenError('Invalid login or password'),
       );
     });
 
-    it('throws ForbiddenException when password is wrong', async () => {
+    it('throws ForbiddenError when password is wrong', async () => {
       prismaMock.user.findUnique.mockResolvedValue(prismaUser);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(service.login(loginDto)).rejects.toThrow(
-        new ForbiddenException('Invalid login or password'),
+        new ForbiddenError('Invalid login or password'),
       );
       expect(bcrypt.compare).toHaveBeenCalledWith(
         loginDto.password,
@@ -187,13 +187,13 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    it('throws UnauthorizedException when refresh token is missing', async () => {
+    it('throws UnauthorizedError when refresh token is missing', async () => {
       await expect(
         service.refresh({ refreshToken: undefined }),
-      ).rejects.toThrow(new UnauthorizedException('Refresh token is required'));
+      ).rejects.toThrow(new UnauthorizedError('Refresh token is required'));
     });
 
-    it('throws ForbiddenException when token is blacklisted', async () => {
+    it('throws ForbiddenError when token is blacklisted', async () => {
       prismaMock.tokenBlacklist.findUnique.mockResolvedValue({
         id: 'blacklist-id',
         token: refreshDto.refreshToken,
@@ -201,16 +201,16 @@ describe('AuthService', () => {
       });
 
       await expect(service.refresh(refreshDto)).rejects.toThrow(
-        new ForbiddenException('Token has been invalidated'),
+        new ForbiddenError('Token has been invalidated'),
       );
     });
 
-    it('throws ForbiddenException for invalid or expired token', async () => {
+    it('throws ForbiddenError for invalid or expired token', async () => {
       prismaMock.tokenBlacklist.findUnique.mockResolvedValue(null);
       jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
 
       await expect(service.refresh(refreshDto)).rejects.toThrow(
-        new ForbiddenException('Invalid or expired refresh token'),
+        new ForbiddenError('Invalid or expired refresh token'),
       );
     });
 
@@ -253,17 +253,17 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('throws UnauthorizedException when refresh token is missing', async () => {
+    it('throws UnauthorizedError when refresh token is missing', async () => {
       await expect(service.logout('')).rejects.toThrow(
-        new UnauthorizedException('Refresh token is required'),
+        new UnauthorizedError('Refresh token is required'),
       );
     });
 
-    it('throws ForbiddenException for invalid or expired token', async () => {
+    it('throws ForbiddenError for invalid or expired token', async () => {
       jwtService.verifyAsync.mockRejectedValue(new Error('invalid token'));
 
       await expect(service.logout(refreshDto.refreshToken)).rejects.toThrow(
-        new ForbiddenException('Invalid or expired refresh token'),
+        new ForbiddenError('Invalid or expired refresh token'),
       );
     });
 

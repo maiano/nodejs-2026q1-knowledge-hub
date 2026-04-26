@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SignupDto } from './dto/signup.dto';
@@ -18,6 +13,11 @@ import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { UserRole } from '../common/enums/user-role.enum';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import {
+  ForbiddenError,
+  UnauthorizedError,
+  ValidationError,
+} from '../common/errors';
 
 @Injectable()
 export class AuthService {
@@ -44,7 +44,7 @@ export class AuthService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new BadRequestException(`Login "${dto.login}" is already taken`);
+        throw new ValidationError(`Login "${dto.login}" is already taken`);
       }
       throw e;
     }
@@ -55,10 +55,10 @@ export class AuthService {
       where: { login: dto.login },
     });
 
-    if (!user) throw new ForbiddenException('Invalid login or password');
+    if (!user) throw new ForbiddenError('Invalid login or password');
 
     const isMatch = await bcrypt.compare(dto.password, user.password);
-    if (!isMatch) throw new ForbiddenException('Invalid login or password');
+    if (!isMatch) throw new ForbiddenError('Invalid login or password');
 
     return this.generateTokens(
       user.id,
@@ -69,7 +69,7 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token is required');
+      throw new UnauthorizedError('Refresh token is required');
     }
 
     try {
@@ -90,20 +90,20 @@ export class AuthService {
         },
       });
     } catch {
-      throw new ForbiddenException('Invalid or expired refresh token');
+      throw new ForbiddenError('Invalid or expired refresh token');
     }
   }
 
   async refresh(dto: RefreshDto) {
     if (!dto.refreshToken) {
-      throw new UnauthorizedException('Refresh token is required');
+      throw new UnauthorizedError('Refresh token is required');
     }
 
     const blacklisted = await this.prisma.tokenBlacklist.findUnique({
       where: { token: dto.refreshToken },
     });
     if (blacklisted) {
-      throw new ForbiddenException('Token has been invalidated');
+      throw new ForbiddenError('Token has been invalidated');
     }
 
     try {
@@ -113,7 +113,7 @@ export class AuthService {
 
       return this.generateTokens(payload.userId, payload.login, payload.role);
     } catch {
-      throw new ForbiddenException('Invalid or expired refresh token');
+      throw new ForbiddenError('Invalid or expired refresh token');
     }
   }
 

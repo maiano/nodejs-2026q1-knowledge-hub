@@ -1,8 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotFoundError } from '../common/errors';
 import { clearPrismaMock, prismaMock } from '../common/testing/prisma.mock';
 import { CategoryService } from './category.service';
 
@@ -51,11 +51,11 @@ describe('CategoryService', () => {
     expect(result).toEqual(category);
   });
 
-  it('findById throws NotFoundException', async () => {
+  it('findById throws NotFoundError', async () => {
     prismaMock.category.findUnique.mockResolvedValue(null);
 
     await expect(service.findById('missing-id')).rejects.toThrow(
-      NotFoundException,
+      new NotFoundError('Category missing-id not found'),
     );
   });
 
@@ -102,7 +102,7 @@ describe('CategoryService', () => {
     });
   });
 
-  it('update converts P2025 to NotFoundException', async () => {
+  it('update converts P2025 to NotFoundError', async () => {
     prismaMock.category.update.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('not found', {
         code: 'P2025',
@@ -115,7 +115,7 @@ describe('CategoryService', () => {
         name: 'Updated',
         description: 'Updated category description',
       }),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toThrow(new NotFoundError('Category missing-id not found'));
   });
 
   it('delete removes category', async () => {
@@ -128,7 +128,7 @@ describe('CategoryService', () => {
     });
   });
 
-  it('delete converts P2025 to NotFoundException', async () => {
+  it('delete converts P2025 to NotFoundError', async () => {
     prismaMock.category.delete.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('not found', {
         code: 'P2025',
@@ -137,7 +137,7 @@ describe('CategoryService', () => {
     );
 
     await expect(service.delete('missing-id')).rejects.toThrow(
-      NotFoundException,
+      new NotFoundError('Category missing-id not found'),
     );
   });
 
