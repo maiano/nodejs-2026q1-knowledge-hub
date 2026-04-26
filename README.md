@@ -11,6 +11,7 @@ The API manages:
 * Categories
 * Comments
 * Authentication and authorization (JWT access + refresh)
+* Logging and error handling
 
 ---
 
@@ -32,6 +33,11 @@ The API manages:
 * RBAC roles: `viewer`, `editor`, `admin`
 * Rate limiting for `/auth/signup` and `/auth/login`
 * Daily cron cleanup of expired refresh tokens in blacklist
+* Request/response logging with sensitive data redaction
+* Global exception filter
+* Custom application errors for `400/401/403/404`
+* Process-level error handling with graceful shutdown
+* File logging with size-based rotation
 * Article filtering by `status`, `categoryId`, `tag`
 * Pagination & sorting (Hacker Scope)
 * Cascade delete logic
@@ -75,6 +81,8 @@ Required auth variables:
 * `JWT_REFRESH_TTL` (example: `7d`)
 * `AUTH_THROTTLE_LIMIT` (example: `100`)
 * `AUTH_THROTTLE_TTL_MS` (example: `60000`)
+* `LOG_LEVEL` (`log`, `debug`, `warn`, `error`, `verbose`)
+* `LOG_MAX_FILE_SIZE` (kilobytes, example: `1024`)
 
 Required DB variable:
 
@@ -112,11 +120,63 @@ npm start
 
 App URL: `http://localhost:4000`  
 Swagger: `http://localhost:4000/doc`
+Health: `http://localhost:4000/health`
 
 For dev mode:
 
 ```bash
 npm run start:dev
+```
+
+---
+
+## Logging
+
+The app uses `nestjs-pino`.
+
+Implemented behavior:
+
+* human-readable logs in development
+* structured logs in production
+* request logging with method, URL, query, and sanitized body
+* response logging with status code and response time
+* file logging to `logs/app.log`
+* size-based file rotation controlled by `LOG_MAX_FILE_SIZE`
+
+Sensitive fields are redacted in logs:
+
+* `password`
+* `accessToken`
+* `refreshToken`
+* `token`
+
+Process-level handlers are also registered for:
+
+* `uncaughtException`
+* `unhandledRejection`
+
+---
+
+## Error Handling
+
+The app uses a global exception filter.
+
+Handled error types:
+
+* Nest `HttpException`
+* `ValidationError` -> `400`
+* `UnauthorizedError` -> `401`
+* `ForbiddenError` -> `403`
+* `NotFoundError` -> `404`
+
+Unknown errors return:
+
+```json
+{
+  "statusCode": 500,
+  "error": "Internal Server Error",
+  "message": "An unexpected error occurred"
+}
 ```
 
 ---
@@ -157,6 +217,10 @@ curl -X POST http://localhost:4000/auth/logout \
 
 5. Refresh again with same token should return `403`
 
+6. Invalid login or password should return `403`
+
+7. Missing refresh token should return `401`
+
 ---
 
 ## RBAC summary
@@ -168,6 +232,24 @@ curl -X POST http://localhost:4000/auth/logout \
 ---
 
 ## Testing
+
+Unit tests (Vitest):
+
+```bash
+npm run test:unit
+```
+
+Coverage:
+
+```bash
+npm run test:coverage
+```
+
+Full auth-aware e2e:
+
+```bash
+npm run test:e2e
+```
 
 Auth e2e tests:
 
@@ -187,11 +269,22 @@ Refresh tests:
 npm run test:refresh
 ```
 
+Legacy Jest-only suite:
+
+```bash
+npm run test:legacy
+```
+
 Important for e2e tests:
 
 * API must be running on `http://localhost:4000` (`npm start`)
 * DB must be available and migrations applied
 * If tests fail with `AggregateError`, first check API health: `GET /health`
+
+Current Vitest coverage thresholds:
+
+* lines >= `90`
+* branches >= `85`
 
 ## Lint & Format
 
