@@ -17,6 +17,21 @@ const SENSITIVE_FIELDS = ['password', 'accessToken', 'refreshToken', 'token'];
 export const pinoConfig: Params = {
   pinoHttp: {
     level: logLevel,
+    customSuccessObject(_req, res, val) {
+      return {
+        ...val,
+        statusCode: res.statusCode,
+        responseTime: val.responseTime,
+      };
+    },
+    customErrorObject(_req, res, error, val) {
+      return {
+        ...val,
+        err: error,
+        statusCode: res.statusCode,
+        responseTime: val.responseTime,
+      };
+    },
 
     serializers: {
       req(req) {
@@ -43,9 +58,7 @@ export const pinoConfig: Params = {
               options: {
                 file: join(process.cwd(), 'logs', 'app.log'),
                 mkdir: true,
-                frequency: 'daily',
                 size: `${maxFileSizeKb}k`,
-
                 dateFormat: "yyyy-MM-dd'T'HH-mm-ss",
               },
               level: logLevel,
