@@ -42,6 +42,7 @@ export const pinoConfig: Params = {
               target: 'pino-roll',
               options: {
                 file: join(process.cwd(), 'logs', 'app.log'),
+                mkdir: true,
                 frequency: 'daily',
                 size: `${maxFileSizeKb}k`,
 
@@ -71,6 +72,7 @@ export const pinoConfig: Params = {
               target: 'pino-roll',
               options: {
                 file: join(process.cwd(), 'logs', 'app.log'),
+                mkdir: true,
                 size: `${maxFileSizeKb}k`,
                 dateFormat: "yyyy-MM-dd'T'HH-mm-ss",
               },
