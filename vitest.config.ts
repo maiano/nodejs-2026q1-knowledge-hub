@@ -15,6 +15,7 @@ export default defineConfig({
       exclude: [
         'src/main.ts',
         'src/**/*.module.ts',
+        'src/**/*.controller.ts',
         'src/**/*.entity.ts',
         'src/**/*.dto.ts',
         'src/**/dto/**',
