@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -11,6 +7,7 @@ import { mapArticle } from '../common/utils/mappers';
 import { ArticleStatus, Prisma } from '@prisma/client';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../common/enums/user-role.enum';
+import { ForbiddenError, NotFoundError } from '../common/errors';
 
 @Injectable()
 export class ArticleService {
@@ -30,7 +27,7 @@ export class ArticleService {
       include: { tags: true },
     });
 
-    if (!article) throw new NotFoundException();
+    if (!article) throw new NotFoundError(`Article ${id} not found`);
 
     return mapArticle(article);
   }
@@ -64,10 +61,10 @@ export class ArticleService {
       where: { id },
     });
 
-    if (!exists) throw new NotFoundException();
+    if (!exists) throw new NotFoundError(`Article ${id} not found`);
 
     if (actor.role === UserRole.EDITOR && exists.authorId !== actor.userId) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenError('Insufficient permissions');
     }
 
     const { tags, status, ...rest } = dto;
@@ -104,10 +101,10 @@ export class ArticleService {
       select: { id: true, authorId: true },
     });
 
-    if (!article) throw new NotFoundException();
+    if (!article) throw new NotFoundError(`Article ${id} not found`);
 
     if (actor.role === UserRole.EDITOR && article.authorId !== actor.userId) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenError('Insufficient permissions');
     }
 
     try {
@@ -117,7 +114,7 @@ export class ArticleService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2025'
       ) {
-        throw new NotFoundException();
+        throw new NotFoundError(`Article ${id} not found`);
       }
       throw e;
     }

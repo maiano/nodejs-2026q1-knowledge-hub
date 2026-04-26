@@ -1,15 +1,11 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { mapComment } from '../common/utils/mappers';
 import { Prisma } from '@prisma/client';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../common/enums/user-role.enum';
+import { ForbiddenError, NotFoundError } from '../common/errors';
 
 @Injectable()
 export class CommentService {
@@ -38,7 +34,7 @@ export class CommentService {
 
   async findById(id: string) {
     const comment = await this.prisma.comment.findUnique({ where: { id } });
-    if (!comment) throw new NotFoundException();
+    if (!comment) throw new NotFoundError(`Comment ${id} not found`);
     return mapComment(comment);
   }
 
@@ -69,10 +65,10 @@ export class CommentService {
       select: { id: true, authorId: true },
     });
 
-    if (!comment) throw new NotFoundException();
+    if (!comment) throw new NotFoundError(`Comment ${id} not found`);
 
     if (actor.role === UserRole.EDITOR && comment.authorId !== actor.userId) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenError('Insufficient permissions');
     }
 
     try {
@@ -82,7 +78,7 @@ export class CommentService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2025'
       ) {
-        throw new NotFoundException();
+        throw new NotFoundError(`Comment ${id} not found`);
       }
       throw e;
     }

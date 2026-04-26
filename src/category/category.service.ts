@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Prisma } from '@prisma/client';
+import { NotFoundError } from '../common/errors';
 
 const ALLOWED_SORT = ['name', 'id'] as const;
 
@@ -16,7 +17,7 @@ export class CategoryService {
 
   async findById(id: string) {
     const category = await this.prisma.category.findUnique({ where: { id } });
-    if (!category) throw new NotFoundException();
+    if (!category) throw new NotFoundError(`Category ${id} not found`);
     return category;
   }
 
@@ -35,7 +36,7 @@ export class CategoryService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2025'
       ) {
-        throw new NotFoundException();
+        throw new NotFoundError(`Category ${id} not found`);
       }
       throw e;
     }
@@ -49,7 +50,7 @@ export class CategoryService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2025'
       ) {
-        throw new NotFoundException();
+        throw new NotFoundError(`Category ${id} not found`);
       }
       throw e;
     }
