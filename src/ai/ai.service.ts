@@ -135,6 +135,13 @@ export class AiService {
     return { result: resultText };
   }
 
+  getUsage() {
+    return {
+      ...this.usage.getStats(),
+      cache: this.cache.getStats(),
+    };
+  }
+
   private async getArticleOrThrow(articleId: string) {
     const article = await this.prisma.article.findUnique({
       where: { id: articleId },
