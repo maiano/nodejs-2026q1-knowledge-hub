@@ -7,8 +7,10 @@ import { AiUsageService } from './usage/ai-usage.service';
 import { AiOutputValidator } from './validators/ai-output.validator';
 import { AiSessionContextService } from './context/ai-session-context.service';
 import { AiRateLimitGuard } from './rate-limit/ai-rate-limit.guard';
+import { LoggerModule } from '../logger/logger.module';
 
 @Module({
+  imports: [LoggerModule],
   controllers: [AiController],
   providers: [
     AiService,
