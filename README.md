@@ -177,6 +177,43 @@ npm run start:dev
 
 ---
 
+## AI Automation Check
+
+AI verification script:
+
+* For a quick end-to-end AI check, run:
+
+```bash
+./scripts/check-ai.sh
+```
+
+What the script does:
+
+* creates a user
+* promotes the user to `EDITOR` through `prisma db execute`
+* logs in
+* creates one article
+* calls `summarize`, `translate`, `analyze`, `generate`, and `usage`
+
+Script requirements:
+
+* the API must already be running on `http://localhost:4000` or on `APP_URL`
+* `.env` must contain valid `DATABASE_URL` and `GEMINI_API_KEY`
+
+Supported environments:
+
+* `macOS`
+* `Linux`
+* `Windows` via `WSL`
+
+Optional overrides:
+
+```bash
+APP_URL=http://localhost:4000 LOGIN=my_ai_check PASSWORD='Pass123!' ./scripts/check-ai.sh
+```
+
+---
+
 ## AI Manual Check
 
 1. Create `.env` from `.env.example`, fill in DB, JWT, and Gemini variables, then prepare the database
