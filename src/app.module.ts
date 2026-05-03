@@ -13,6 +13,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'src/logger/logger.module';
 import { AllExceptionsFilter } from 'src/common/filters/all-exceptions.filter';
+import { AiModule } from 'src/ai/ai.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AllExceptionsFilter } from 'src/common/filters/all-exceptions.filter';
     CommentModule,
     CategoryModule,
     AuthModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [
