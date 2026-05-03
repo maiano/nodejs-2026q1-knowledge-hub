@@ -6,7 +6,15 @@ export const buildAnalyzePrompt = (
 ) => {
   const task = dto.task ?? 'review';
 
-  return `Task: ${task}
+  return `Analyze the following article and respond with JSON only.
+Return exactly this shape:
+{
+  "analysis": "short analysis text",
+  "suggestions": ["suggestion 1", "suggestion 2"],
+  "severity": "info"
+}
+Allowed severity values: info, warning, error.
+Task: ${task}
 Title: ${article.title}
 Content:
 ${article.content}`;

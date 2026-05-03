@@ -8,7 +8,12 @@ export const buildTranslatePrompt = (
     ? `Source language: ${dto.sourceLanguage}`
     : 'Detect source language automatically';
 
-  return `Translate the following article.
+  return `Translate the following article and respond with JSON only.
+Return exactly this shape:
+{
+  "translatedText": "translated article text",
+  "detectedLanguage": "detected source language"
+}
 Target language: ${dto.targetLanguage}
 ${sourceLanguage}
 Title: ${article.title}

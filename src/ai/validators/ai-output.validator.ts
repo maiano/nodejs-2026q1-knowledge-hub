@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
 export type TranslateOutput = {
   translatedText: string;
@@ -16,7 +16,19 @@ const VALID_SEVERITY = ['info', 'warning', 'error'] as const;
 @Injectable()
 export class AiOutputValidator {
   ensureText(value: unknown): string {
-    return typeof value === 'string' ? value.trim() : '';
+    if (typeof value !== 'string') {
+      throw new ServiceUnavailableException(
+        'AI service returned invalid output',
+      );
+    }
+
+    const normalized = value.trim();
+
+    if (!normalized) {
+      throw new ServiceUnavailableException('AI service returned empty output');
+    }
+
+    return normalized;
   }
 
   parseTranslate(raw: string, fallbackLanguage?: string): TranslateOutput {
