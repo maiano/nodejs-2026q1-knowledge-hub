@@ -14,6 +14,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'src/logger/logger.module';
 import { AllExceptionsFilter } from 'src/common/filters/all-exceptions.filter';
 import { AiModule } from 'src/ai/ai.module';
+import { RagModule } from 'src/ai/rag/rag.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AiModule } from 'src/ai/ai.module';
     CategoryModule,
     AuthModule,
     AiModule,
+    RagModule,
   ],
   controllers: [AppController],
   providers: [
