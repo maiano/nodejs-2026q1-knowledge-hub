@@ -106,6 +106,7 @@ Required RAG variables:
 * `RAG_VECTOR_DB_PROVIDER` (default/example: `qdrant`)
 * `RAG_VECTOR_DB_URL` (default/example: `http://vectordb:6333`)
 * `RAG_VECTOR_COLLECTION` (default/example: `knowledge_hub_articles`)
+* `RAG_VECTOR_SIZE` (default/example: `3072`)
 * `RAG_CHUNK_SIZE` (default: `800`)
 * `RAG_CHUNK_OVERLAP` (default: `200`)
 * `RAG_CONVERSATION_MAX_MESSAGES` (default: `20`)
@@ -128,6 +129,7 @@ RAG vector DB:
 
 * `Qdrant`
 * collection: `knowledge_hub_articles`
+* vector size: `3072`
 * transport: HTTP API inside the same Docker Compose network
 
 AI access policy:
@@ -152,6 +154,7 @@ After cloning the repository:
 4. Keep or adjust `GEMINI_MODEL=gemini-2.5-flash`.
 5. Keep or adjust `GEMINI_EMBEDDING_MODEL=text-embedding-004`.
 6. Keep default or adjust RAG chunking and conversation limits in `.env`.
+7. Keep `RAG_VECTOR_SIZE=3072` aligned with the active embedding model output dimension.
 
 Known limitations:
 

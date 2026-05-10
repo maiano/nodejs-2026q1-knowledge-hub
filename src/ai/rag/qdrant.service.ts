@@ -28,17 +28,41 @@ interface QdrantPoint {
   payload: ChunkPayload;
 }
 
+interface QdrantQueryResponse {
+  result?: {
+    points?: SearchResult[];
+  };
+}
+
+interface QdrantCollectionInfoResponse {
+  result?: {
+    config?: {
+      params?: {
+        vectors?: {
+          size?: number;
+        };
+      };
+    };
+  };
+}
+
 @Injectable()
 export class QdrantService implements OnModuleInit {
   private readonly baseUrl: string;
   private readonly collection: string;
-  private readonly vectorSize = 768;
+  private readonly vectorSize: number;
 
   constructor(private readonly logger: PinoLogger) {
     this.logger.setContext(QdrantService.name);
     this.baseUrl = process.env.RAG_VECTOR_DB_URL ?? 'http://localhost:6333';
     this.collection =
       process.env.RAG_VECTOR_COLLECTION ?? 'knowledge_hub_articles';
+    const vectorSize = Number.parseInt(
+      process.env.RAG_VECTOR_SIZE ?? '3072',
+      10,
+    );
+    this.vectorSize =
+      Number.isNaN(vectorSize) || vectorSize < 1 ? 3072 : vectorSize;
   }
 
   async onModuleInit() {
@@ -50,20 +74,51 @@ export class QdrantService implements OnModuleInit {
       const response = await this.fetch(
         `GET`,
         `/collections/${this.collection}`,
+        undefined,
+        [404],
       );
 
       if (response.status === 404) {
-        await this.fetch('PUT', `/collections/${this.collection}`, {
-          vectors: {
-            size: this.vectorSize,
-            distance: 'Cosine',
+        await this.createCollection();
+        return;
+      }
+
+      const data = (await response.json()) as QdrantCollectionInfoResponse;
+      const currentVectorSize = data.result?.config?.params?.vectors?.size;
+
+      if (currentVectorSize !== this.vectorSize) {
+        this.logger.warn(
+          {
+            collection: this.collection,
+            currentVectorSize,
+            expectedVectorSize: this.vectorSize,
           },
-        });
-        this.logger.info(`Created Qdrant collection: ${this.collection}`);
+          'Qdrant collection vector size mismatch, recreating collection',
+        );
+
+        await this.fetch('DELETE', `/collections/${this.collection}`);
+        await this.createCollection();
       }
     } catch (err) {
       this.logger.error({ err }, 'Failed to initialize Qdrant collection');
     }
+  }
+
+  private async createCollection() {
+    await this.fetch('PUT', `/collections/${this.collection}`, {
+      vectors: {
+        size: this.vectorSize,
+        distance: 'Cosine',
+      },
+    });
+
+    this.logger.info(
+      {
+        collection: this.collection,
+        vectorSize: this.vectorSize,
+      },
+      'Created Qdrant collection',
+    );
   }
 
   async upsertPoints(points: QdrantPoint[]): Promise<void> {
@@ -82,7 +137,7 @@ export class QdrantService implements OnModuleInit {
     filter?: Record<string, unknown>,
   ): Promise<SearchResult[]> {
     const body: Record<string, unknown> = {
-      vector,
+      query: vector,
       limit,
       with_payload: true,
       with_vector: false,
@@ -92,12 +147,12 @@ export class QdrantService implements OnModuleInit {
 
     const response = await this.fetch(
       'POST',
-      `/collections/${this.collection}/points/search`,
+      `/collections/${this.collection}/points/query`,
       body,
     );
 
-    const data = (await response.json()) as { result: SearchResult[] };
-    return data.result ?? [];
+    const data = (await response.json()) as QdrantQueryResponse;
+    return data.result?.points ?? [];
   }
 
   async scrollByText(
@@ -178,6 +233,7 @@ export class QdrantService implements OnModuleInit {
     method: string,
     path: string,
     body?: unknown,
+    allowedStatusCodes: number[] = [],
   ): Promise<Response> {
     try {
       const response = await globalThis.fetch(`${this.baseUrl}${path}`, {
@@ -186,8 +242,27 @@ export class QdrantService implements OnModuleInit {
         body: body ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(10_000),
       });
+
+      if (!response.ok && !allowedStatusCodes.includes(response.status)) {
+        const responseText = await response.text();
+        this.logger.error(
+          {
+            method,
+            path,
+            statusCode: response.status,
+            responseText,
+          },
+          'Qdrant request returned non-success status',
+        );
+        throw new ServiceUnavailableException('Vector DB request failed');
+      }
+
       return response;
     } catch (err) {
+      if (err instanceof ServiceUnavailableException) {
+        throw err;
+      }
+
       this.logger.error({ err }, 'Qdrant request failed');
       throw new ServiceUnavailableException('Vector DB is unavailable');
     }

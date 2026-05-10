@@ -9,6 +9,7 @@ import { ReindexDto } from './dto/reindex.dto';
 import { RagSearchDto } from './dto/rag-search.dto';
 import { RagChatDto } from './dto/rag-chat.dto';
 import { PinoLogger } from 'nestjs-pino';
+import { createHash } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
@@ -253,17 +254,17 @@ export class RagService {
   }
 
   private buildPointId(articleId: string, chunkIndex: number): string {
-    const base = `${articleId}-chunk-${chunkIndex}`;
-    return (
-      base.substring(0, 8).padEnd(8, '0') +
-      '-' +
-      base.substring(8, 12).padEnd(4, '0') +
-      '-4' +
-      base.substring(12, 15).padEnd(3, '0') +
-      '-a' +
-      base.substring(15, 18).padEnd(3, '0') +
-      '-' +
-      base.replace(/-/g, '').substring(0, 12).padEnd(12, '0')
-    );
+    const hex = createHash('sha1')
+      .update(`${articleId}:${chunkIndex}`)
+      .digest('hex')
+      .slice(0, 32);
+
+    return [
+      hex.slice(0, 8),
+      hex.slice(8, 12),
+      `4${hex.slice(13, 16)}`,
+      `a${hex.slice(17, 20)}`,
+      hex.slice(20, 32),
+    ].join('-');
   }
 }
