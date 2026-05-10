@@ -33,6 +33,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 COPY --chown=app:app --from=builder /app/dist ./dist
 
+RUN mkdir -p /app/logs && chown -R app:app /app/logs
+
 USER app
 
 EXPOSE 4000
