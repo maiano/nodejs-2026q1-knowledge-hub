@@ -32,6 +32,7 @@ The API manages:
 * JWT access/refresh tokens
 * RBAC roles: `viewer`, `editor`, `admin`
 * AI endpoints for article summarize, translate, analyze, and usage stats
+* RAG endpoints for indexing, semantic search, grounded chat, and source attribution
 * Rate limiting for `/auth/signup` and `/auth/login`
 * Daily cron cleanup of expired refresh tokens in blacklist
 * Request/response logging with sensitive data redaction
@@ -40,6 +41,7 @@ The API manages:
 * Process-level error handling with graceful shutdown
 * File logging with size-based rotation
 * Article filtering by `status`, `categoryId`, `tag`
+* External Qdrant vector DB in Docker Compose
 * Pagination & sorting (Hacker Scope)
 * Cascade delete logic
 * Password is never returned in API responses
@@ -50,6 +52,7 @@ The API manages:
 
 * Node.js (v24.10+)
 * PostgreSQL (local or Docker)
+* Docker Compose (for app + PostgreSQL + Qdrant)
 
 ---
 
@@ -94,12 +97,23 @@ Required AI variables:
 * `GEMINI_API_KEY`
 * `GEMINI_API_BASE_URL` (default: `https://generativelanguage.googleapis.com`)
 * `GEMINI_MODEL` (default/example: `gemini-2.5-flash`)
+* `GEMINI_EMBEDDING_MODEL` (default/example: `text-embedding-004`)
 * `AI_RATE_LIMIT_RPM` (default: `20`)
 * `AI_CACHE_TTL_SEC` (default: `300`)
 
+Required RAG variables:
+
+* `RAG_VECTOR_DB_PROVIDER` (default/example: `qdrant`)
+* `RAG_VECTOR_DB_URL` (default/example: `http://vectordb:6333`)
+* `RAG_VECTOR_COLLECTION` (default/example: `knowledge_hub_articles`)
+* `RAG_VECTOR_SIZE` (default/example: `3072`)
+* `RAG_CHUNK_SIZE` (default: `800`)
+* `RAG_CHUNK_OVERLAP` (default: `200`)
+* `RAG_CONVERSATION_MAX_MESSAGES` (default: `20`)
+
 ---
 
-## AI Setup
+## AI and RAG Setup
 
 This project integrates Google Gemini over the HTTP API inside a dedicated `AiModule`.
 
@@ -107,9 +121,20 @@ Default model:
 
 * `gemini-2.5-flash`
 
+Default embedding model:
+
+* `text-embedding-004`
+
+RAG vector DB:
+
+* `Qdrant`
+* collection: `knowledge_hub_articles`
+* vector size: `3072`
+* transport: HTTP API inside the same Docker Compose network
+
 AI access policy:
 
-* AI endpoints are intentionally restricted to `editor` and `admin`
+* AI and RAG endpoints are intentionally restricted to `editor` and `admin`
 * Reason: AI requests consume external API quota and should not be exposed to every authenticated user by default
 
 How to obtain a Gemini API key:
@@ -126,13 +151,19 @@ After cloning the repository:
 1. Install dependencies with `npm install`.
 2. Create `.env` from `.env.example`.
 3. Fill in `DATABASE_URL`, `JWT_SECRET_KEY`, `JWT_SECRET_REFRESH_KEY`, and `GEMINI_API_KEY`.
-4. Optionally adjust `GEMINI_MODEL`, `AI_RATE_LIMIT_RPM`, and `AI_CACHE_TTL_SEC`.
+4. Keep or adjust `GEMINI_MODEL=gemini-2.5-flash`.
+5. Keep or adjust `GEMINI_EMBEDDING_MODEL=text-embedding-004`.
+6. Keep default or adjust RAG chunking and conversation limits in `.env`.
+7. Keep `RAG_VECTOR_SIZE=3072` aligned with the active embedding model output dimension.
 
 Known limitations:
 
 * Gemini free-tier quotas may throttle requests or return temporary upstream errors.
 * AI responses are probabilistic, so wording may vary between calls.
 * AI cache, usage metrics, rate-limit counters, and conversation context are stored in memory and reset after process restart.
+* RAG indexing time depends on article count and Gemini embedding latency.
+* Hybrid retrieval quality depends on chunking and article content quality.
+* Vector collection health and embedding/vector dimension compatibility must be verified in the running environment.
 * Google AI Studio and API key/project availability can depend on account/project access and regional availability.
 
 ---
@@ -161,6 +192,20 @@ npx prisma db seed
 
 ## Running the application
 
+Recommended full startup flow with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+* app on `http://localhost:4000`
+* PostgreSQL on `localhost:5432`
+* Qdrant on `localhost:6333`
+
+If you run the API without Docker:
+
 ```bash
 npm start
 ```
@@ -174,6 +219,124 @@ For dev mode:
 ```bash
 npm run start:dev
 ```
+
+## RAG Manual Check
+
+1. Start the full stack
+
+```bash
+docker compose up --build
+```
+
+2. Register a user
+
+```bash
+curl -X POST http://localhost:4000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"login":"rag_editor","password":"Pass123!"}'
+```
+
+3. Promote the user to `EDITOR`
+
+```bash
+npx prisma db execute --stdin
+```
+
+```sql
+UPDATE "User"
+SET role = 'EDITOR'
+WHERE login = 'rag_editor';
+```
+
+4. Login and copy the `accessToken`
+
+```bash
+curl -X POST http://localhost:4000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"login":"rag_editor","password":"Pass123!"}'
+```
+
+5. Create one or more published articles
+
+```bash
+curl -X POST http://localhost:4000/article \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "title":"NestJS RAG Guide",
+    "content":"Retrieval-augmented generation combines vector search with grounded generation. Qdrant stores chunk embeddings, and Gemini is used for embeddings and final answers.",
+    "status":"published",
+    "tags":["rag","nestjs","qdrant"]
+  }'
+```
+
+6. Build or refresh the RAG index
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/index \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"onlyPublished":true}'
+```
+
+7. Run semantic search
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"query":"How does Qdrant help RAG?","limit":5}'
+```
+
+8. Run grounded chat
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"question":"Explain how embeddings and Qdrant work together in this project."}'
+```
+
+9. Optional conversation history inspection
+
+```bash
+curl http://localhost:4000/ai/rag/chat/<CONVERSATION_ID>/history \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+10. Delete one article from the vector index
+
+```bash
+curl -X DELETE http://localhost:4000/ai/rag/index/articles/<ARTICLE_ID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Expected RAG behavior:
+
+* `POST /ai/rag/index` returns `200` with `indexedArticles`, `indexedChunks`, `vectorCollection`
+* `POST /ai/rag/search` returns `200` with ranked chunks and article attribution
+* `POST /ai/rag/chat` returns `200` with `answer`, `sources`, and `conversationId`
+* `DELETE /ai/rag/index/articles/:articleId` returns `204`
+* missing `query` or `question` returns `400`
+* invalid article id format returns `400`
+* unknown article id on delete returns `404`
+* vector DB outage returns `503`
+* Gemini outage returns `503`
+
+## RAG Verification Algorithm
+
+1. Start `docker compose up --build` and confirm `GET /health` returns `200`.
+2. Confirm Qdrant is reachable on `http://localhost:6333/dashboard`.
+3. Create or reuse at least one `published` article with distinctive content.
+4. Call `POST /ai/rag/index` and verify `indexedArticles > 0` and `indexedChunks > 0`.
+5. Call `POST /ai/rag/search` with a query that should clearly match the article.
+6. Check that returned chunks actually contain the facts needed to answer the query.
+7. Call `POST /ai/rag/chat` with the same topic and verify the answer is grounded in returned sources.
+8. Call `POST /ai/rag/chat` again with `conversationId` and verify history is retained.
+9. Delete the indexed article with `DELETE /ai/rag/index/articles/:articleId`.
+10. Repeat `search` and verify deleted article chunks are no longer returned.
+11. Change article content, re-run `POST /ai/rag/index`, and verify updated chunks appear in results.
+12. Negative-check `400`, `404`, and `503` paths before final submission.
 
 ---
 
@@ -216,6 +379,8 @@ APP_URL=http://localhost:4000 LOGIN=my_ai_check PASSWORD='Pass123!' ./scripts/ch
 
 ## AI Manual Check
 
+This is a legacy non-RAG verification flow for summarize, translate, analyze, generate, and usage endpoints.
+
 1. Create `.env` from `.env.example`, fill in DB, JWT, and Gemini variables, then prepare the database
 
 ```bash
@@ -239,13 +404,9 @@ curl -X POST http://localhost:4000/auth/signup \
 
 4. Promote that user to `EDITOR`
 
-The AI endpoints are intentionally limited to `editor` and `admin`, so update the role in the database before continuing.
-
 ```bash
 npx prisma db execute --stdin
 ```
-
-Then insert SQL:
 
 ```sql
 UPDATE "User"
@@ -275,69 +436,9 @@ curl -X POST http://localhost:4000/article \
   }'
 ```
 
-7. Summarize
+7. Call `summarize`, `translate`, `analyze`, `generate`, and `usage` as shown in previous project steps.
 
-```bash
-curl -X POST http://localhost:4000/ai/articles/<ARTICLE_ID>/summarize \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <TOKEN>" \
-  -d '{"maxLength":"short"}'
-```
-
-8. Translate
-
-```bash
-curl -X POST http://localhost:4000/ai/articles/<ARTICLE_ID>/translate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <TOKEN>" \
-  -d '{"targetLanguage":"Russian"}'
-```
-
-9. Analyze
-
-```bash
-curl -X POST http://localhost:4000/ai/articles/<ARTICLE_ID>/analyze \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <TOKEN>" \
-  -d '{"task":"review"}'
-```
-
-10. Optional generic generation
-
-```bash
-curl -X POST http://localhost:4000/ai/generate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <TOKEN>" \
-  -d '{"prompt":"Give me three bullet points about NestJS modules.","sessionId":"manual-check-1"}'
-```
-
-11. Usage and observability metrics
-
-```bash
-curl http://localhost:4000/ai/usage \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Seed-based shortcut:
-
-* If you prefer seeded demo data, run `npx prisma db seed` after migrations and client generation.
-* Then skip steps `3` and `4`.
-* Login with seeded editor credentials and continue from step `5`:
-
-```bash
-curl -X POST http://localhost:4000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"login":"editor","password":"editor123"}'
-```
-
-* You can still use step `6` to create a dedicated article for the AI check, or reuse an existing one from the seeded dataset by calling:
-
-```bash
-curl http://localhost:4000/article \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Expected behavior:
+Expected AI behavior:
 
 * `POST /ai/articles/:articleId/summarize` returns `200` with `articleId`, `summary`, `originalLength`, `summaryLength`
 * `POST /ai/articles/:articleId/translate` returns `200` with `articleId`, `translatedText`, `detectedLanguage`
