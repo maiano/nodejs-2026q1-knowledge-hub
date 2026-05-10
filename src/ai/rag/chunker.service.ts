@@ -13,12 +13,10 @@ export class ChunkerService {
 
   constructor() {
     const chunkSize = Number.parseInt(process.env.RAG_CHUNK_SIZE ?? '800', 10);
-    const overlap = Number.parseInt(
-      process.env.RAG_CHUNK_OVERLAP ?? '200',
-      10,
-    );
+    const overlap = Number.parseInt(process.env.RAG_CHUNK_OVERLAP ?? '200', 10);
 
-    this.chunkSize = Number.isNaN(chunkSize) || chunkSize <= 0 ? 800 : chunkSize;
+    this.chunkSize =
+      Number.isNaN(chunkSize) || chunkSize <= 0 ? 800 : chunkSize;
     this.overlap =
       Number.isNaN(overlap) || overlap < 0
         ? 200
